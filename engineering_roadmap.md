@@ -165,89 +165,89 @@
 ## Stage 5: Enhanced AI Features
 
 ### 5.1 - FAQ / Knowledge Base
-- [ ] FAQ data model: question + answer pairs per clinic
-- [ ] Admin page to add/edit/delete FAQ entries
-- [ ] AI tool `get_faq_answer` searches FAQ by relevance
-- [ ] AI falls back to general clinic info if no FAQ match
-- [ ] Common defaults: parking, insurance accepted, new patient process
+- [x] FAQ data model: question + answer pairs per clinic
+- [x] Admin page to add/edit/delete FAQ entries
+- [x] AI tool `get_faq_answer` searches FAQ by relevance
+- [x] AI falls back to general clinic info if no FAQ match
+- [x] Common defaults: parking, insurance accepted, new patient process
 
 ### 5.2 - Intelligent Routing
-- [ ] Symptom-to-service mapping (configurable by clinic)
-- [ ] AI asks clarifying questions to narrow down service type
-- [ ] Emergency keyword detection: "chest pain", "can't breathe", "severe bleeding"
-- [ ] Emergency response: immediately advise calling 911, do not attempt to book
+- [x] Symptom-to-service mapping (configurable by clinic)
+- [x] AI asks clarifying questions to narrow down service type
+- [x] Emergency keyword detection: "chest pain", "can't breathe", "severe bleeding"
+- [x] Emergency response: immediately advise calling 911, do not attempt to book
 
 ### 5.3 - Human Handoff
-- [ ] AI detects when it cannot help (complex billing, complaints, medical advice)
-- [ ] AI responds: "Let me connect you with our staff" + collects callback info
-- [ ] Pending handoff queue visible in admin dashboard
-- [ ] Staff can view conversation transcript
+- [x] AI detects when it cannot help (complex billing, complaints, medical advice)
+- [x] AI responds: "Let me connect you with our staff" + collects callback info
+- [x] Pending handoff queue visible in admin dashboard
+- [x] Staff can view conversation transcript
 
 ### 5.4 - Conversation Intelligence
-- [ ] Store all conversations in data layer
-- [ ] Admin view: conversation history list with search
-- [ ] Auto-generated summary per conversation (via Gemini)
-- [ ] Flag conversations that resulted in no booking (potential lost leads)
+- [x] Store all conversations in data layer
+- [x] Admin view: conversation history list with search
+- [x] Auto-generated summary per conversation (via Gemini)
+- [x] Flag conversations that resulted in no booking (potential lost leads)
 
 ---
 
 ## Stage 6: Patient Intake System
 
 ### 6.1 - Form Builder (Admin)
-- [ ] Drag-and-drop form builder (or simplified field list)
-- [ ] Field types: text, textarea, select, multi-select, date, checkbox, file upload
-- [ ] Required/optional toggle per field
-- [ ] Assign forms to specific services (e.g., "New Patient" form for first visits)
-- [ ] Preview form as patient would see it
+- [x] Drag-and-drop form builder (or simplified field list)
+- [x] Field types: text, textarea, select, multi-select, date, checkbox, file upload
+- [x] Required/optional toggle per field
+- [x] Assign forms to specific services (e.g., "New Patient" form for first visits)
+- [x] Preview form as patient would see it
 
 ### 6.2 - Patient Form Completion
-- [ ] After booking, patient receives link to fill intake form
-- [ ] Form rendered from JSONB field definitions
-- [ ] Validation (required fields, format checks)
-- [ ] Submit stores response linked to appointment
-- [ ] Staff can view completed forms in appointment detail
+- [x] After booking, patient receives link to fill intake form
+- [x] Form rendered from JSONB field definitions
+- [x] Validation (required fields, format checks)
+- [x] Submit stores response linked to appointment
+- [x] Staff can view completed forms in appointment detail
 
 ### 6.3 - Medical History Collection
-- [ ] Structured fields: allergies, current medications, conditions, surgeries
-- [ ] Stored on patient record, pre-filled on future visits
-- [ ] AI can reference during conversation ("I see you listed penicillin allergy")
+- [x] Structured fields: allergies, current medications, conditions, surgeries
+- [x] Stored on patient record, pre-filled on future visits
+- [x] AI can reference during conversation ("I see you listed penicillin allergy")
 
 ---
 
 ## Stage 7: Notifications (Local Simulation)
 
 ### 7.1 - Notification System (Console/Log-Based Locally)
-- [ ] Notification queue in data layer
-- [ ] Types: booking_confirmation, reminder, cancellation, no_show_followup
-- [ ] In local dev: log to console / show in admin dashboard notification panel
-- [ ] Template system: customizable message templates per notification type
-- [ ] Scheduling: reminders triggered at configurable times before appointment
+- [x] Notification queue in data layer
+- [x] Types: booking_confirmation, reminder, cancellation, no_show_followup
+- [x] In local dev: log to console / show in admin dashboard notification panel
+- [x] Template system: customizable message templates per notification type
+- [x] Scheduling: reminders triggered at configurable times before appointment
 
 ### 7.2 - Prepare for Email/SMS Integration
-- [ ] Abstract notification sender interface
-- [ ] Resend adapter (email) - implemented but inactive until deployment
-- [ ] Twilio adapter (SMS) - implemented but inactive until deployment
-- [ ] Env vars: `RESEND_API_KEY`, `TWILIO_*` (optional, gracefully skip if missing)
+- [x] Abstract notification sender interface
+- [x] Resend adapter (email) - implemented but inactive until deployment
+- [x] Twilio adapter (SMS) - implemented but inactive until deployment
+- [x] Env vars: `RESEND_API_KEY`, `TWILIO_*` (optional, gracefully skip if missing)
 
 ---
 
 ## Stage 8: Analytics Dashboard
 
 ### 8.1 - Metrics
-- [ ] Total appointments (today, this week, this month)
-- [ ] Booking source breakdown (chat vs. manual)
-- [ ] No-show rate
-- [ ] Cancellation rate
-- [ ] Average appointments per provider
-- [ ] Peak hours heatmap
-- [ ] New vs. returning patients
-- [ ] Most popular services
+- [x] Total appointments (today, this week, this month)
+- [x] Booking source breakdown (chat vs. manual)
+- [x] No-show rate
+- [x] Cancellation rate
+- [x] Average appointments per provider
+- [x] Peak hours heatmap
+- [x] New vs. returning patients
+- [x] Most popular services
 
 ### 8.2 - UI
-- [ ] Dashboard home page with metric cards
-- [ ] Charts using `recharts` or `chart.js`
-- [ ] Date range picker for filtering
-- [ ] Export data as CSV (basic)
+- [x] Dashboard home page with metric cards
+- [x] Charts using `recharts` or `chart.js`
+- [x] Date range picker for filtering
+- [x] Export data as CSV (basic)
 
 ---
 
@@ -306,4 +306,4 @@
 - [x] Plan created (plan.md)
 - [x] Engineering roadmap created (this file)
 - [x] .env configured (GEMINI_API_KEY + GEMINI_MODEL)
-- [ ] **Next: Stage 1.1 - Project Scaffolding**
+- [x] **Stages 1-8 Completed (Local Development Finished)**

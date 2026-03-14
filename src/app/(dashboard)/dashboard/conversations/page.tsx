@@ -79,7 +79,7 @@ export default function ConversationsPage() {
                   </p>
                 </div>
               </div>
-              <ScrollArea className="flex-1 p-4">
+              <ScrollArea className="flex-1 min-h-0 p-4">
                 <div className="flex flex-col gap-4">
                   {selectedConv.messages.map((m: ChatMessage, idx) => (
                     <div

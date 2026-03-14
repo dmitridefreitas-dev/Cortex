@@ -9,7 +9,7 @@ const options = [
     description: "Chat with Cortex for appointments, answers, and help.",
     icon: MessageCircle,
     accent:
-      "from-blue-600 to-blue-500 text-white shadow-[0_20px_50px_-30px_rgba(37,99,235,0.65)]",
+      "border-blue-500/20 bg-gradient-to-br from-blue-600 to-blue-500 text-white shadow-[0_20px_50px_-30px_rgba(37,99,235,0.65)]",
   },
   {
     href: "/dashboard",

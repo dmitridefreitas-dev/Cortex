@@ -11,6 +11,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import type { IntakeForm, IntakeFormField } from "@/types";
 import { CheckCircle2 } from "lucide-react";
 
+type IntakeResponseValue = string | boolean;
+
 export default function PatientIntakePageWrapper() {
   return (
     <Suspense fallback={<div className="flex min-h-screen items-center justify-center">Loading...</div>}>
@@ -28,8 +30,11 @@ function PatientIntakePage() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
-  const [responses, setResponses] = useState<Record<string, any>>({});
+  const [responses, setResponses] = useState<Record<string, IntakeResponseValue>>({});
   const [error, setError] = useState("");
+
+  const getTextResponse = (fieldId: string) =>
+    typeof responses[fieldId] === "string" ? responses[fieldId] : "";
 
   useEffect(() => {
     if (!formId) {
@@ -56,7 +61,7 @@ function PatientIntakePage() {
       });
   }, [formId]);
 
-  const handleChange = (fieldId: string, value: any) => {
+  const handleChange = (fieldId: string, value: IntakeResponseValue) => {
     setResponses(prev => ({
       ...prev,
       [fieldId]: value
@@ -90,7 +95,7 @@ function PatientIntakePage() {
         })
       });
       setSubmitted(true);
-    } catch (err) {
+    } catch {
       alert("Failed to submit form. Please try again.");
     } finally {
       setSubmitting(false);
@@ -156,7 +161,7 @@ function PatientIntakePage() {
                   {field.type === 'text' && (
                     <Input 
                       id={field.id}
-                      value={responses[field.id] || ""}
+                      value={getTextResponse(field.id)}
                       onChange={(e) => handleChange(field.id, e.target.value)}
                       required={field.required}
                     />
@@ -166,7 +171,7 @@ function PatientIntakePage() {
                     <Textarea 
                       id={field.id}
                       rows={3}
-                      value={responses[field.id] || ""}
+                      value={getTextResponse(field.id)}
                       onChange={(e) => handleChange(field.id, e.target.value)}
                       required={field.required}
                     />
@@ -176,7 +181,7 @@ function PatientIntakePage() {
                     <Input 
                       id={field.id}
                       type="date"
-                      value={responses[field.id] || ""}
+                      value={getTextResponse(field.id)}
                       onChange={(e) => handleChange(field.id, e.target.value)}
                       required={field.required}
                     />
@@ -187,7 +192,7 @@ function PatientIntakePage() {
                       <Checkbox 
                         id={field.id} 
                         checked={!!responses[field.id]}
-                        onCheckedChange={(checked: boolean) => handleChange(field.id, checked)}
+                        onCheckedChange={(checked) => handleChange(field.id, checked === true)}
                       />
                       <label htmlFor={field.id} className="text-sm cursor-pointer">
                         Yes, I confirm

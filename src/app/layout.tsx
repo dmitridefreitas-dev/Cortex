@@ -1,16 +1,7 @@
 import type { Metadata } from "next";
-import { Inter, Outfit } from "next/font/google";
+import "@fontsource/inter";
+import "@fontsource/outfit";
 import "./globals.css";
-
-const inter = Inter({
-  variable: "--font-inter",
-  subsets: ["latin"],
-});
-
-const outfit = Outfit({
-  variable: "--font-outfit",
-  subsets: ["latin"],
-});
 
 export const metadata: Metadata = {
   title: "Cortex - AI Clinic Receptionist",
@@ -24,9 +15,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="scroll-smooth">
-      <body
-        className={`${inter.variable} ${outfit.variable} font-sans antialiased text-slate-800 selection:bg-indigo-500/30 selection:text-indigo-900`}
-      >
+      <body className="font-sans antialiased text-slate-800 selection:bg-blue-500/20 selection:text-blue-950">
         {children}
       </body>
     </html>

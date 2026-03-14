@@ -1,16 +1,30 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
-import { Send, Loader2, Bot, ArrowLeft } from "lucide-react";
+import Link from "next/link";
+import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  ArrowLeft,
+  Bot,
+  CalendarClock,
+  Loader2,
+  Send,
+  ShieldCheck,
+  Sparkles,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import Link from "next/link";
 
 interface Message {
   role: "user" | "assistant";
   content: string;
   timestamp: string;
 }
+
+const starterPrompts = [
+  "I need the earliest appointment this week.",
+  "What insurance do you accept?",
+  "Help me prepare for my intake visit.",
+];
 
 function getSessionId() {
   if (typeof window === "undefined") return "";
@@ -20,6 +34,13 @@ function getSessionId() {
     sessionStorage.setItem("cortex-session-id", id);
   }
   return id;
+}
+
+function formatTimestamp(timestamp: string) {
+  return new Date(timestamp).toLocaleTimeString([], {
+    hour: "numeric",
+    minute: "2-digit",
+  });
 }
 
 export default function ChatPage() {
@@ -43,7 +64,7 @@ export default function ChatPage() {
   useEffect(() => {
     if (!hasGreeted) {
       setHasGreeted(true);
-      sendMessage("Hello", true);
+      void sendMessage("Hello", true);
     }
     inputRef.current?.focus();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -62,13 +83,16 @@ export default function ChatPage() {
     setIsLoading(true);
 
     try {
-      const res = await fetch("/api/chat", {
+      const response = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message: text, sessionId }),
       });
+      const data = await response.json();
 
-      const data = await res.json();
+      if (!response.ok || data.error) {
+        throw new Error(data.error || "Failed to fetch response");
+      }
 
       if (data.reply) {
         setMessages((prev) => [
@@ -80,7 +104,8 @@ export default function ChatPage() {
           },
         ]);
       }
-    } catch {
+    } catch (error) {
+      console.error(error);
       setMessages((prev) => [
         ...prev,
         {
@@ -100,7 +125,7 @@ export default function ChatPage() {
     const text = input.trim();
     if (!text || isLoading) return;
     setInput("");
-    sendMessage(text);
+    void sendMessage(text);
   }
 
   function handleKeyDown(e: React.KeyboardEvent) {
@@ -110,103 +135,207 @@ export default function ChatPage() {
     }
   }
 
+  function handleStarterPrompt(prompt: string) {
+    if (isLoading) return;
+    setInput("");
+    void sendMessage(prompt);
+  }
+
   return (
-    <div className="flex h-dvh flex-col bg-slate-50">
-      {/* Header */}
-      <header className="flex items-center gap-3 border-b border-slate-200 bg-white px-4 py-3 shadow-sm sm:px-6">
-        <Link
-          href="/"
-          className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
-        >
-          <ArrowLeft className="h-5 w-5" />
-        </Link>
-        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-600 text-white">
-          <Bot className="h-5 w-5" />
-        </div>
-        <div>
-          <h1 className="text-lg font-semibold text-slate-900">Cortex</h1>
-          <p className="text-xs text-slate-500">AI Clinic Receptionist</p>
+    <div className="relative flex min-h-dvh flex-col overflow-hidden">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(191,219,254,0.45),transparent_30%),radial-gradient(circle_at_bottom_right,rgba(219,234,254,0.65),transparent_26%)]" />
+
+      <header className="relative border-b border-blue-100/80 bg-white/85 px-4 py-4 backdrop-blur sm:px-6">
+        <div className="mx-auto flex max-w-5xl items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <Link
+              href="/"
+              className="flex h-11 w-11 items-center justify-center rounded-2xl border border-blue-100 bg-white text-slate-500 shadow-sm transition-colors hover:bg-blue-50 hover:text-slate-700"
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </Link>
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-600 text-white shadow-lg shadow-blue-500/20">
+              <Bot className="h-6 w-6" />
+            </div>
+            <div>
+              <h1 className="text-lg font-semibold text-slate-950">Cortex</h1>
+              <p className="text-sm text-slate-500">
+                Secure AI receptionist for patient support
+              </p>
+            </div>
+          </div>
+
+          <div className="hidden items-center gap-2 rounded-full border border-blue-100 bg-blue-50/70 px-3 py-1.5 text-sm text-blue-700 sm:flex">
+            <Sparkles className="h-4 w-4" />
+            White + blue patient experience
+          </div>
         </div>
       </header>
 
-      {/* Messages */}
-      <div
-        ref={scrollRef}
-        className="flex-1 overflow-y-auto px-4 py-6 sm:px-6"
-      >
-        <div className="mx-auto max-w-2xl space-y-4">
-          {messages.length === 0 && !isLoading && (
-            <div className="flex flex-col items-center justify-center py-20 text-center text-slate-400">
-              <Bot className="mb-4 h-12 w-12" />
-              <p className="text-lg font-medium">Starting conversation...</p>
+      <main className="relative flex flex-1 flex-col px-4 pb-4 pt-6 sm:px-6 sm:pb-6">
+        <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-4">
+          <section className="grid gap-4 rounded-[30px] border border-white/70 bg-white/88 p-5 shadow-[0_25px_80px_-45px_rgba(37,99,235,0.42)] backdrop-blur sm:p-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
+            <div>
+              <p className="text-sm font-medium uppercase tracking-[0.14em] text-blue-700">
+                Patient chat
+              </p>
+              <h2 className="mt-3 text-2xl font-semibold text-slate-950 sm:text-3xl">
+                Ask questions, book visits, and get routed faster.
+              </h2>
+              <p className="mt-3 max-w-2xl text-base leading-7 text-slate-600">
+                This view now feels more intentional: calmer background,
+                stronger message framing, and quicker prompt starters for common
+                patient needs.
+              </p>
             </div>
-          )}
-
-          {messages.map((msg, i) => (
-            <div
-              key={i}
-              className={cn(
-                "flex",
-                msg.role === "user" ? "justify-end" : "justify-start"
-              )}
-            >
-              {msg.role === "assistant" && (
-                <div className="mr-2 mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-100 text-blue-600">
-                  <Bot className="h-4 w-4" />
+            <div className="grid gap-3 sm:grid-cols-2 lg:min-w-[260px] lg:grid-cols-1">
+              <div className="rounded-3xl border border-blue-100 bg-blue-50/80 p-4">
+                <div className="flex items-center gap-2 text-sm font-medium text-blue-700">
+                  <CalendarClock className="h-4 w-4" />
+                  Scheduling help
                 </div>
-              )}
-              <div
-                className={cn(
-                  "max-w-[75%] rounded-2xl px-4 py-3 text-sm leading-relaxed sm:text-base",
-                  msg.role === "user"
-                    ? "bg-blue-600 text-white rounded-br-md"
-                    : "bg-white text-slate-800 border border-slate-200 rounded-bl-md shadow-sm"
+                <p className="mt-2 text-sm leading-6 text-slate-600">
+                  Appointment booking and rescheduling guidance.
+                </p>
+              </div>
+              <div className="rounded-3xl border border-blue-100 bg-white p-4">
+                <div className="flex items-center gap-2 text-sm font-medium text-slate-800">
+                  <ShieldCheck className="h-4 w-4 text-blue-700" />
+                  Reliable answers
+                </div>
+                <p className="mt-2 text-sm leading-6 text-slate-600">
+                  FAQ and intake responses routed through one assistant.
+                </p>
+              </div>
+            </div>
+          </section>
+
+          <section className="flex flex-1 flex-col overflow-hidden rounded-[32px] border border-white/70 bg-white/85 shadow-[0_30px_90px_-50px_rgba(37,99,235,0.45)] backdrop-blur">
+            <div
+              ref={scrollRef}
+              className="flex-1 overflow-y-auto px-4 py-5 sm:px-6 sm:py-6"
+            >
+              <div className="mx-auto max-w-3xl space-y-5">
+                {messages.length <= 1 && (
+                  <div className="rounded-[28px] border border-blue-100 bg-gradient-to-br from-white to-blue-50/70 p-5">
+                    <div className="flex items-start gap-4">
+                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-blue-600 text-white shadow-lg shadow-blue-500/20">
+                        <Bot className="h-6 w-6" />
+                      </div>
+                      <div>
+                        <p className="text-lg font-semibold text-slate-950">
+                          Start with a common request
+                        </p>
+                        <p className="mt-2 text-sm leading-6 text-slate-600">
+                          Use one of these prompts or type your own question.
+                        </p>
+                      </div>
+                    </div>
+                    <div className="mt-5 grid gap-3 sm:grid-cols-3">
+                      {starterPrompts.map((prompt) => (
+                        <button
+                          key={prompt}
+                          type="button"
+                          onClick={() => handleStarterPrompt(prompt)}
+                          className="rounded-2xl border border-blue-100 bg-white px-4 py-3 text-left text-sm font-medium text-slate-700 transition-colors hover:bg-blue-50"
+                        >
+                          {prompt}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 )}
+
+                {messages.length === 0 && isLoading && (
+                  <div className="flex items-center justify-center py-20 text-slate-400">
+                    <div className="flex flex-col items-center gap-3">
+                      <div className="flex h-14 w-14 items-center justify-center rounded-3xl bg-blue-50 text-blue-700">
+                        <Loader2 className="h-6 w-6 animate-spin" />
+                      </div>
+                      <p className="text-sm font-medium">Starting conversation...</p>
+                    </div>
+                  </div>
+                )}
+
+                {messages.map((message, index) => (
+                  <div
+                    key={`${message.timestamp}-${index}`}
+                    className={cn(
+                      "flex gap-3",
+                      message.role === "user" ? "justify-end" : "justify-start"
+                    )}
+                  >
+                    {message.role === "assistant" && (
+                      <div className="mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-blue-50 text-blue-700 ring-1 ring-blue-100">
+                        <Bot className="h-4 w-4" />
+                      </div>
+                    )}
+                    <div className="max-w-[86%] sm:max-w-[78%]">
+                      <div
+                        className={cn(
+                          "rounded-[24px] px-4 py-3.5 text-sm leading-7 shadow-sm sm:px-5 sm:text-[15px]",
+                          message.role === "user"
+                            ? "rounded-br-lg bg-blue-600 text-white shadow-blue-500/20"
+                            : "rounded-bl-lg border border-blue-100 bg-white text-slate-800"
+                        )}
+                      >
+                        <p className="whitespace-pre-wrap">{message.content}</p>
+                      </div>
+                      <p
+                        className={cn(
+                          "mt-2 text-xs",
+                          message.role === "user"
+                            ? "text-right text-blue-500/80"
+                            : "text-slate-400"
+                        )}
+                      >
+                        {formatTimestamp(message.timestamp)}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+
+                {isLoading && messages.length > 0 && (
+                  <div className="flex justify-start gap-3">
+                    <div className="mt-1 flex h-9 w-9 items-center justify-center rounded-2xl bg-blue-50 text-blue-700 ring-1 ring-blue-100">
+                      <Bot className="h-4 w-4" />
+                    </div>
+                    <div className="rounded-[24px] rounded-bl-lg border border-blue-100 bg-white px-4 py-3 shadow-sm">
+                      <Loader2 className="h-5 w-5 animate-spin text-blue-600" />
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="border-t border-blue-100/80 bg-white/90 px-4 py-4 sm:px-6">
+              <form
+                onSubmit={handleSubmit}
+                className="mx-auto flex max-w-3xl items-end gap-3"
               >
-                <p className="whitespace-pre-wrap">{msg.content}</p>
-              </div>
+                <textarea
+                  ref={inputRef}
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  placeholder="Type your message..."
+                  rows={1}
+                  className="min-h-12 flex-1 resize-none rounded-[24px] border border-blue-100 bg-slate-50 px-4 py-3 text-sm text-slate-800 outline-none transition focus:border-blue-300 focus:ring-4 focus:ring-blue-100 sm:text-base"
+                  disabled={isLoading}
+                />
+                <Button
+                  type="submit"
+                  size="icon"
+                  className="h-12 w-12 shrink-0 rounded-2xl shadow-lg shadow-blue-500/20"
+                  disabled={!input.trim() || isLoading}
+                >
+                  <Send className="h-4 w-4" />
+                </Button>
+              </form>
             </div>
-          ))}
-
-          {isLoading && (
-            <div className="flex justify-start">
-              <div className="mr-2 mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-100 text-blue-600">
-                <Bot className="h-4 w-4" />
-              </div>
-              <div className="rounded-2xl rounded-bl-md border border-slate-200 bg-white px-4 py-3 shadow-sm">
-                <Loader2 className="h-5 w-5 animate-spin text-blue-600" />
-              </div>
-            </div>
-          )}
+          </section>
         </div>
-      </div>
-
-      {/* Input */}
-      <div className="border-t border-slate-200 bg-white px-4 py-3 sm:px-6">
-        <form
-          onSubmit={handleSubmit}
-          className="mx-auto flex max-w-2xl items-end gap-3"
-        >
-          <textarea
-            ref={inputRef}
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Type your message..."
-            rows={1}
-            className="flex-1 resize-none rounded-xl border border-slate-300 bg-slate-50 px-4 py-3 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 sm:text-base"
-            disabled={isLoading}
-          />
-          <Button
-            type="submit"
-            size="icon"
-            className="h-11 w-11 shrink-0 rounded-xl bg-blue-600 hover:bg-blue-700"
-            disabled={!input.trim() || isLoading}
-          >
-            <Send className="h-4 w-4" />
-          </Button>
-        </form>
-      </div>
+      </main>
     </div>
   );
 }

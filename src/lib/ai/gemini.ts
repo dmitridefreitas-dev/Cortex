@@ -1,4 +1,9 @@
-import { GoogleGenAI } from "@google/genai";
+import {
+  GoogleGenAI,
+  type Content,
+  type FunctionResponse,
+  type Part,
+} from "@google/genai";
 import { toolDeclarations } from "./tools";
 import { executeTool } from "./tool-executor";
 import { buildSystemPrompt } from "./prompts";
@@ -24,8 +29,7 @@ export async function chat(
   const allToolCalls: Array<{ name: string; args: Record<string, string>; result: unknown }> = [];
 
   // Use generateContent with function calling loop
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const currentContents: any[] = [...geminiContents];
+  const currentContents: Content[] = [...geminiContents];
   let maxIterations = 10; // Safety limit for tool call loops
 
   while (maxIterations > 0) {
@@ -58,10 +62,11 @@ export async function chat(
     }
 
     // Execute function calls and continue the loop
-    currentContents.push(candidate.content as any);
+    if (candidate.content) {
+      currentContents.push(candidate.content);
+    }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const functionResponses: any[] = [];
+    const functionResponses: Part[] = [];
     for (const part of functionCalls) {
       const fc = part.functionCall!;
       let result: unknown;
@@ -80,10 +85,13 @@ export async function chat(
       const responseObj = (typeof result === "object" && result !== null && !Array.isArray(result))
         ? result as Record<string, unknown>
         : { result };
+      const functionResponse: FunctionResponse = {
+        name: fc.name!,
+        response: responseObj,
+      };
       functionResponses.push({
         functionResponse: {
-          name: fc.name!,
-          response: responseObj,
+          ...functionResponse,
         },
       });
     }

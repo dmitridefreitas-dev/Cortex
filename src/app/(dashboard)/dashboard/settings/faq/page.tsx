@@ -16,15 +16,30 @@ export default function FAQSettingsPage() {
   const [newAnswer, setNewAnswer] = useState("");
   const [adding, setAdding] = useState(false);
 
-  useEffect(() => {
-    fetchFaqs();
-  }, []);
-
   async function fetchFaqs() {
-    setLoading(true);
     const res = await fetch("/api/clinic/faq");
     const data = await res.json();
-    setFaqs(data.faqEntries || []);
+    return data.faqEntries || [];
+  }
+
+  useEffect(() => {
+    let active = true;
+
+    void fetchFaqs().then((entries) => {
+      if (!active) return;
+      setFaqs(entries);
+      setLoading(false);
+    });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  async function refreshFaqs() {
+    setLoading(true);
+    const entries = await fetchFaqs();
+    setFaqs(entries);
     setLoading(false);
   }
 
@@ -40,7 +55,7 @@ export default function FAQSettingsPage() {
     if (res.ok) {
       setNewQuestion("");
       setNewAnswer("");
-      fetchFaqs();
+      await refreshFaqs();
     }
     setAdding(false);
   }
@@ -48,7 +63,7 @@ export default function FAQSettingsPage() {
   async function handleDelete(id: string) {
     if (!window.confirm("Are you sure you want to delete this FAQ?")) return;
     await fetch(`/api/clinic/faq?id=${id}`, { method: "DELETE" });
-    fetchFaqs();
+    await refreshFaqs();
   }
 
   return (

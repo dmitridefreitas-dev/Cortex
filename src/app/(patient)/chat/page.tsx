@@ -1,9 +1,10 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Send, Loader2, Bot } from "lucide-react";
+import { Send, Loader2, Bot, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import Link from "next/link";
 
 interface Message {
   role: "user" | "assistant";
@@ -113,6 +114,12 @@ export default function ChatPage() {
     <div className="flex h-dvh flex-col bg-slate-50">
       {/* Header */}
       <header className="flex items-center gap-3 border-b border-slate-200 bg-white px-4 py-3 shadow-sm sm:px-6">
+        <Link
+          href="/"
+          className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
+        >
+          <ArrowLeft className="h-5 w-5" />
+        </Link>
         <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-600 text-white">
           <Bot className="h-5 w-5" />
         </div>

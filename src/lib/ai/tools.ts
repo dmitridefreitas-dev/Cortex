@@ -83,22 +83,26 @@ export const toolDeclarations: FunctionDeclaration[] = [
         },
         patientFirstName: {
           type: Type.STRING,
-          description: "Patient first name (required for new patients).",
+          description: "Patient first name.",
         },
         patientLastName: {
           type: Type.STRING,
-          description: "Patient last name (required for new patients).",
+          description: "Patient last name.",
+        },
+        reason: {
+          type: Type.STRING,
+          description: "Reason for the visit, symptoms, or what the problem is.",
         },
         patientEmail: {
           type: Type.STRING,
-          description: "Patient email (required for new patients).",
+          description: "Optional patient email.",
         },
         patientPhone: {
           type: Type.STRING,
-          description: "Patient phone number (required for new patients).",
+          description: "Optional patient phone number.",
         },
       },
-      required: ["providerId", "serviceId", "startTime"],
+      required: ["providerId", "serviceId", "startTime", "reason", "patientFirstName"],
     },
   },
   {

@@ -1,54 +1,82 @@
-import { getDb } from ".";
+import { supabase } from "@/lib/supabase";
 import type { Conversation, ChatMessage } from "@/types";
 import { v4 as uuidv4 } from "uuid";
 
+function rowToConversation(row: Record<string, unknown>): Conversation {
+  return {
+    id: row.id as string,
+    clinicId: row.clinic_id as string,
+    patientId: row.patient_id as string | undefined,
+    messages: row.messages as ChatMessage[],
+    summary: row.summary as string | undefined,
+    createdAt: row.created_at as string,
+    updatedAt: row.updated_at as string,
+  };
+}
+
 export async function getConversations(clinicId: string): Promise<Conversation[]> {
-  const db = await getDb();
-  return db.data.conversations
-    .filter((c) => c.clinicId === clinicId)
-    .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+  const { data } = await supabase
+    .from("conversations")
+    .select("*")
+    .eq("clinic_id", clinicId)
+    .order("updated_at", { ascending: false });
+  return (data || []).map(rowToConversation);
 }
 
 export async function getConversation(id: string): Promise<Conversation | undefined> {
-  const db = await getDb();
-  return db.data.conversations.find((c) => c.id === id);
+  const { data } = await supabase.from("conversations").select("*").eq("id", id).single();
+  return data ? rowToConversation(data) : undefined;
 }
 
-export async function createConversation(data: Omit<Conversation, "createdAt" | "updatedAt">): Promise<Conversation> {
-  const db = await getDb();
+export async function createConversation(
+  data: Omit<Conversation, "createdAt" | "updatedAt">
+): Promise<Conversation> {
   const now = new Date().toISOString();
-  const conv: Conversation = {
-    ...data,
-    id: data.id || `conv-${uuidv4()}`,
-    createdAt: now,
-    updatedAt: now,
+  const id = data.id || `conv-${uuidv4()}`;
+  const row = {
+    id,
+    clinic_id: data.clinicId,
+    patient_id: data.patientId || null,
+    messages: data.messages,
+    summary: data.summary || null,
+    created_at: now,
+    updated_at: now,
   };
-  db.data.conversations.push(conv);
-  await db.write();
-  return conv;
+  const { data: inserted } = await supabase.from("conversations").insert(row).select().single();
+  return rowToConversation(inserted!);
 }
 
 export async function addMessageToConversation(
   id: string,
   message: ChatMessage
 ): Promise<Conversation | undefined> {
-  const db = await getDb();
-  const idx = db.data.conversations.findIndex((c) => c.id === id);
-  if (idx === -1) return undefined;
+  // Fetch current messages, append, then update
+  const { data: existing } = await supabase
+    .from("conversations")
+    .select("messages")
+    .eq("id", id)
+    .single();
+  if (!existing) return undefined;
 
-  db.data.conversations[idx].messages.push(message);
-  db.data.conversations[idx].updatedAt = new Date().toISOString();
-  await db.write();
-  return db.data.conversations[idx];
+  const messages = [...(existing.messages as ChatMessage[]), message];
+  const { data: updated } = await supabase
+    .from("conversations")
+    .update({ messages, updated_at: new Date().toISOString() })
+    .eq("id", id)
+    .select()
+    .single();
+  return updated ? rowToConversation(updated) : undefined;
 }
 
-export async function summarizeConversation(id: string, summary: string): Promise<Conversation | undefined> {
-  const db = await getDb();
-  const idx = db.data.conversations.findIndex((c) => c.id === id);
-  if (idx === -1) return undefined;
-
-  db.data.conversations[idx].summary = summary;
-  db.data.conversations[idx].updatedAt = new Date().toISOString();
-  await db.write();
-  return db.data.conversations[idx];
+export async function summarizeConversation(
+  id: string,
+  summary: string
+): Promise<Conversation | undefined> {
+  const { data } = await supabase
+    .from("conversations")
+    .update({ summary, updated_at: new Date().toISOString() })
+    .eq("id", id)
+    .select()
+    .single();
+  return data ? rowToConversation(data) : undefined;
 }

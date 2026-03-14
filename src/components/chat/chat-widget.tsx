@@ -74,6 +74,10 @@ export function ChatWidget() {
 
       const data = await res.json();
 
+      if (!res.ok || data.error) {
+        throw new Error(data.error || "Failed to fetch response");
+      }
+
       if (data.reply) {
         setMessages((prev) => [
           ...prev,
@@ -84,7 +88,8 @@ export function ChatWidget() {
           },
         ]);
       }
-    } catch {
+    } catch (error) {
+      console.error("Chat error:", error);
       setMessages((prev) => [
         ...prev,
         {

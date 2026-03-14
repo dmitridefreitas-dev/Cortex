@@ -68,7 +68,7 @@ export default function ConversationsPage() {
         </div>
 
         {/* Chat View */}
-        <div className="col-span-2 flex flex-col bg-slate-50">
+        <div className="col-span-2 flex flex-col min-h-0 bg-slate-50">
           {selectedConv ? (
             <>
               <div className="border-b bg-background p-4 flex items-center justify-between">

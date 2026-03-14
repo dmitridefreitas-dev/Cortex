@@ -24,7 +24,8 @@ export async function chat(
   const allToolCalls: Array<{ name: string; args: Record<string, string>; result: unknown }> = [];
 
   // Use generateContent with function calling loop
-  let currentContents = [...geminiContents];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const currentContents: any[] = [...geminiContents];
   let maxIterations = 10; // Safety limit for tool call loops
 
   while (maxIterations > 0) {
@@ -57,29 +58,32 @@ export async function chat(
     }
 
     // Execute function calls and continue the loop
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const modelParts: any[] = parts.map((p) => {
-      if (p.functionCall) {
-        return { functionCall: { name: p.functionCall.name!, args: p.functionCall.args } };
-      }
-      return { text: p.text || "" };
-    });
-    currentContents.push({ role: "model" as const, parts: modelParts });
+    currentContents.push(candidate.content as any);
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const functionResponses: any[] = [];
     for (const part of functionCalls) {
       const fc = part.functionCall!;
-      const result = await executeTool(fc.name!, (fc.args as Record<string, string>) || {});
+      let result: unknown;
+      try {
+        result = await executeTool(fc.name!, (fc.args as Record<string, string>) || {});
+      } catch (err) {
+        console.error(`Tool ${fc.name} failed:`, err);
+        result = { error: `Tool execution failed: ${err instanceof Error ? err.message : String(err)}` };
+      }
       allToolCalls.push({
         name: fc.name!,
         args: (fc.args as Record<string, string>) || {},
         result,
       });
+      // Gemini requires functionResponse.response to be a plain object (not an array)
+      const responseObj = (typeof result === "object" && result !== null && !Array.isArray(result))
+        ? result as Record<string, unknown>
+        : { result };
       functionResponses.push({
         functionResponse: {
           name: fc.name!,
-          response: result as Record<string, unknown>,
+          response: responseObj,
         },
       });
     }

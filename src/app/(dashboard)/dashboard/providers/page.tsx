@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -132,11 +132,9 @@ export default function ProvidersPage() {
         <h1 className="text-2xl font-bold">Providers</h1>
 
         <Dialog open={addOpen} onOpenChange={setAddOpen}>
-          <DialogTrigger>
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              Add Provider
-            </Button>
+          <DialogTrigger className={buttonVariants()}>
+            <Plus className="mr-2 h-4 w-4" />
+            Add Provider
           </DialogTrigger>
           <DialogContent className="sm:max-w-md">
             <DialogHeader>

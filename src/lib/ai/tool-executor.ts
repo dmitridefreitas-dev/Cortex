@@ -103,21 +103,27 @@ export async function executeTool(
       // Find or create patient
       let patientId = args.patientId;
       if (!patientId) {
-        if (!args.patientFirstName || !args.patientLastName || !args.patientEmail || !args.patientPhone) {
-          return { error: "Patient information is required. Please provide first name, last name, email, and phone." };
+        if (!args.patientFirstName) {
+          return { error: "Patient first name is required." };
         }
+        
+        const firstName = args.patientFirstName;
+        const lastName = args.patientLastName || "Unknown";
+        const email = args.patientEmail || `${firstName.toLowerCase().replace(/[^a-z0-9]/g, '')}@example.com`;
+        const phone = args.patientPhone || "0000000000";
+
         // Check if patient exists
-        let patient = await findPatientByEmail(CLINIC_ID, args.patientEmail);
-        if (!patient) {
-          patient = await findPatientByPhone(CLINIC_ID, args.patientPhone);
+        let patient = await findPatientByEmail(CLINIC_ID, email);
+        if (!patient && args.patientPhone) {
+          patient = await findPatientByPhone(CLINIC_ID, phone);
         }
         if (!patient) {
           patient = await createPatient({
             clinicId: CLINIC_ID,
-            firstName: args.patientFirstName,
-            lastName: args.patientLastName,
-            email: args.patientEmail,
-            phone: args.patientPhone,
+            firstName,
+            lastName,
+            email,
+            phone,
           });
         }
         patientId = patient.id;
@@ -134,29 +140,34 @@ export async function executeTool(
         endTime,
         status: "confirmed",
         bookedVia: "chat",
+        notes: args.reason,
       });
 
-      // Send notifications
-      const { getPatient } = await import("@/lib/db/patients");
-      const patient = await getPatient(patientId);
+      // Send notifications (non-blocking — don't crash booking if they fail)
+      try {
+        const { getPatient } = await import("@/lib/db/patients");
+        const patient = await getPatient(patientId);
 
-      const basePayload = {
-        to: patient?.email || patient?.phone || "",
-        patientName: patient ? `${patient.firstName} ${patient.lastName}` : "Patient",
-        metadata: {
-          service: service.name,
-          date: format(new Date(startTime), "EEEE, MMMM d, yyyy"),
-          time: format(new Date(startTime), "h:mm a"),
-          provider: providerId
-        }
-      };
+        const basePayload = {
+          to: patient?.email || patient?.phone || "",
+          patientName: patient ? `${patient.firstName} ${patient.lastName}` : "Patient",
+          metadata: {
+            service: service.name,
+            date: format(new Date(startTime), "EEEE, MMMM d, yyyy"),
+            time: format(new Date(startTime), "h:mm a"),
+            provider: providerId
+          }
+        };
 
-      await sendNotification({ ...basePayload, type: "booking_confirmation" });
-      await sendNotification({ 
-        ...basePayload, 
-        type: "intake_form_link",
-        metadata: { ...basePayload.metadata, formId: "form-default", appointmentId: appointment.id }
-      });
+        await sendNotification({ ...basePayload, type: "booking_confirmation" });
+        await sendNotification({
+          ...basePayload,
+          type: "intake_form_link",
+          metadata: { ...basePayload.metadata, formId: "form-default", appointmentId: appointment.id }
+        });
+      } catch (e) {
+        console.error("Notification send failed (non-fatal):", e);
+      }
 
       return {
         success: true,
@@ -181,21 +192,25 @@ export async function executeTool(
 
       await cancelAppointment(appointmentId);
 
-      const { getPatient } = await import("@/lib/db/patients");
-      const service = await getService(apt.serviceId);
-      const patient = await getPatient(apt.patientId);
-      
-      if (patient) {
-        await sendNotification({
-          to: patient.email || patient.phone || "",
-          patientName: `${patient.firstName} ${patient.lastName}`,
-          type: "booking_cancellation",
-          metadata: {
-            service: service?.name || "Service",
-            date: format(new Date(apt.startTime), "EEEE, MMMM d, yyyy"),
-            time: format(new Date(apt.startTime), "h:mm a")
-          }
-        });
+      try {
+        const { getPatient } = await import("@/lib/db/patients");
+        const service = await getService(apt.serviceId);
+        const patient = await getPatient(apt.patientId);
+
+        if (patient) {
+          await sendNotification({
+            to: patient.email || patient.phone || "",
+            patientName: `${patient.firstName} ${patient.lastName}`,
+            type: "booking_cancellation",
+            metadata: {
+              service: service?.name || "Service",
+              date: format(new Date(apt.startTime), "EEEE, MMMM d, yyyy"),
+              time: format(new Date(apt.startTime), "h:mm a")
+            }
+          });
+        }
+      } catch (e) {
+        console.error("Cancel notification failed (non-fatal):", e);
       }
 
       return {

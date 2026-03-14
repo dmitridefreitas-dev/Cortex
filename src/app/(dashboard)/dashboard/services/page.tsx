@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -118,11 +118,9 @@ export default function ServicesPage() {
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-2xl font-bold">Services</h1>
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger>
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              Add Service
-            </Button>
+          <DialogTrigger className={buttonVariants()}>
+            <Plus className="mr-2 h-4 w-4" />
+            Add Service
           </DialogTrigger>
           <DialogContent className="sm:max-w-md">
             <DialogHeader>

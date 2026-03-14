@@ -7,6 +7,8 @@ import {
   getAppointment,
 } from "@/lib/db/appointments";
 import { getService } from "@/lib/db/services";
+import { getPatient } from "@/lib/db/patients";
+import { getProvider } from "@/lib/db/providers";
 import { addMinutes } from "date-fns";
 import { isSlotAvailable } from "@/lib/availability";
 
@@ -31,7 +33,22 @@ export async function GET(req: NextRequest) {
     status,
   });
 
-  return NextResponse.json({ appointments });
+  const enrichedAppointments = await Promise.all(
+    appointments.map(async (apt) => {
+      const provider = await getProvider(apt.providerId);
+      const patient = await getPatient(apt.patientId);
+      const service = await getService(apt.serviceId);
+      
+      return {
+        ...apt,
+        providerName: provider?.name || apt.providerId,
+        patientName: patient ? `${patient.firstName} ${patient.lastName}` : apt.patientId,
+        serviceName: service?.name || apt.serviceId,
+      };
+    })
+  );
+
+  return NextResponse.json({ appointments: enrichedAppointments });
 }
 
 export async function POST(req: NextRequest) {

@@ -81,6 +81,9 @@ export interface Appointment {
   endTime: string;   // ISO datetime
   status: AppointmentStatus;
   notes?: string;
+  patientName?: string;
+  providerName?: string;
+  serviceName?: string;
   bookedVia: "chat" | "manual" | "online";
   createdAt: string;
   updatedAt: string;

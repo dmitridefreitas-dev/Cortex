@@ -228,16 +228,20 @@ export default function AppointmentsPage() {
                         {format(start, "h:mm a")} – {format(end, "h:mm a")}
                       </TableCell>
                       <TableCell className="text-muted-foreground">
-                        {/* TODO: resolve patient name from patientId */}
-                        <span className="font-mono text-xs">{appt.patientId}</span>
+                        <div className="font-medium text-foreground">
+                          {appt.patientName || <span className="font-mono text-xs">{appt.patientId}</span>}
+                        </div>
+                        {appt.notes && (
+                          <div className="text-xs truncate max-w-[200px]" title={appt.notes}>
+                            Reason: {appt.notes}
+                          </div>
+                        )}
                       </TableCell>
                       <TableCell className="text-muted-foreground">
-                        {/* TODO: resolve provider name from providerId */}
-                        <span className="font-mono text-xs">{appt.providerId}</span>
+                        {appt.providerName || <span className="font-mono text-xs">{appt.providerId}</span>}
                       </TableCell>
                       <TableCell className="text-muted-foreground">
-                        {/* TODO: resolve service name from serviceId */}
-                        <span className="font-mono text-xs">{appt.serviceId}</span>
+                        {appt.serviceName || <span className="font-mono text-xs">{appt.serviceId}</span>}
                       </TableCell>
                       <TableCell>
                         <StatusBadge status={appt.status} />

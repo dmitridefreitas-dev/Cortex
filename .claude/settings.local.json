@@ -1,7 +1,18 @@
 {
   "permissions": {
     "allow": [
-      "Bash(npx create-next-app@latest . --typescript --tailwind --eslint --app --src-dir --import-alias \"@/*\" --use-npm --no-turbopack)"
+      "Bash(npx create-next-app@latest . --typescript --tailwind --eslint --app --src-dir --import-alias \"@/*\" --use-npm --no-turbopack)",
+      "Bash(find /Users/shenghangao/Desktop/cortex -name *supabase* -type f)",
+      "Bash(find /Users/shenghangao/Desktop/cortex -maxdepth 3 -type f -name *supabase* -o -name .supabaserc*)",
+      "Bash(git remote:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(curl -s -X POST http://localhost:3000/api/chat -H \"Content-Type: application/json\" -d '{\"\"message\"\":\"\"I want to book an appointment\"\",\"\"sessionId\"\":\"\"test-debug-001\"\"}')",
+      "Bash(curl -s -X POST http://localhost:3000/api/chat -H \"Content-Type: application/json\" -d '{\"\"message\"\":\"\"I want to book an appointment\"\",\"\"sessionId\"\":\"\"test-debug-002\"\"}')",
+      "WebSearch",
+      "WebFetch(domain:ai.google.dev)",
+      "Bash(curl -s -X POST http://localhost:3000/api/chat -H \"Content-Type: application/json\" -d '{\"\"message\"\":\"\"I want to book an appointment\"\",\"\"sessionId\"\":\"\"test-debug-003\"\"}')"
     ]
   }
 }

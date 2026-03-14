@@ -2,15 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
-import {
-  ArrowLeft,
-  Bot,
-  CalendarClock,
-  Loader2,
-  Send,
-  ShieldCheck,
-  Sparkles,
-} from "lucide-react";
+import { ArrowLeft, Bot, Loader2, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -146,7 +138,7 @@ export default function ChatPage() {
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(191,219,254,0.45),transparent_30%),radial-gradient(circle_at_bottom_right,rgba(219,234,254,0.65),transparent_26%)]" />
 
       <header className="relative border-b border-blue-100/80 bg-white/85 px-4 py-4 backdrop-blur sm:px-6">
-        <div className="mx-auto flex max-w-5xl items-center justify-between gap-4">
+        <div className="mx-auto flex max-w-5xl items-center gap-4">
           <div className="flex items-center gap-3">
             <Link
               href="/"
@@ -164,52 +156,11 @@ export default function ChatPage() {
               </p>
             </div>
           </div>
-
-          <div className="hidden items-center gap-2 rounded-full border border-blue-100 bg-blue-50/70 px-3 py-1.5 text-sm text-blue-700 sm:flex">
-            <Sparkles className="h-4 w-4" />
-            White + blue patient experience
-          </div>
         </div>
       </header>
 
-      <main className="relative flex flex-1 flex-col px-4 pb-4 pt-6 sm:px-6 sm:pb-6">
-        <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-4">
-          <section className="grid gap-4 rounded-[30px] border border-white/70 bg-white/88 p-5 shadow-[0_25px_80px_-45px_rgba(37,99,235,0.42)] backdrop-blur sm:p-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
-            <div>
-              <p className="text-sm font-medium uppercase tracking-[0.14em] text-blue-700">
-                Patient chat
-              </p>
-              <h2 className="mt-3 text-2xl font-semibold text-slate-950 sm:text-3xl">
-                Ask questions, book visits, and get routed faster.
-              </h2>
-              <p className="mt-3 max-w-2xl text-base leading-7 text-slate-600">
-                This view now feels more intentional: calmer background,
-                stronger message framing, and quicker prompt starters for common
-                patient needs.
-              </p>
-            </div>
-            <div className="grid gap-3 sm:grid-cols-2 lg:min-w-[260px] lg:grid-cols-1">
-              <div className="rounded-3xl border border-blue-100 bg-blue-50/80 p-4">
-                <div className="flex items-center gap-2 text-sm font-medium text-blue-700">
-                  <CalendarClock className="h-4 w-4" />
-                  Scheduling help
-                </div>
-                <p className="mt-2 text-sm leading-6 text-slate-600">
-                  Appointment booking and rescheduling guidance.
-                </p>
-              </div>
-              <div className="rounded-3xl border border-blue-100 bg-white p-4">
-                <div className="flex items-center gap-2 text-sm font-medium text-slate-800">
-                  <ShieldCheck className="h-4 w-4 text-blue-700" />
-                  Reliable answers
-                </div>
-                <p className="mt-2 text-sm leading-6 text-slate-600">
-                  FAQ and intake responses routed through one assistant.
-                </p>
-              </div>
-            </div>
-          </section>
-
+      <main className="relative flex flex-1 flex-col px-4 pb-4 pt-4 sm:px-6 sm:pb-6 sm:pt-6">
+        <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col">
           <section className="flex flex-1 flex-col overflow-hidden rounded-[32px] border border-white/70 bg-white/85 shadow-[0_30px_90px_-50px_rgba(37,99,235,0.45)] backdrop-blur">
             <div
               ref={scrollRef}

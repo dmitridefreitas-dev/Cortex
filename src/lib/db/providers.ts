@@ -8,6 +8,7 @@ function rowToProvider(row: Record<string, unknown>): Provider {
     clinicId: row.clinic_id as string,
     name: row.name as string,
     specialty: row.specialty as string,
+    expertise: (row.expertise as string) || "",
     email: row.email as string,
     phone: row.phone as string,
     bio: row.bio as string,
@@ -43,6 +44,7 @@ export async function createProvider(data: Omit<Provider, "id">): Promise<Provid
     clinic_id: data.clinicId,
     name: data.name,
     specialty: data.specialty,
+    expertise: data.expertise || "",
     email: data.email,
     phone: data.phone,
     bio: data.bio,
@@ -59,6 +61,7 @@ export async function updateProvider(
   const row: Record<string, unknown> = {};
   if (updates.name !== undefined) row.name = updates.name;
   if (updates.specialty !== undefined) row.specialty = updates.specialty;
+  if (updates.expertise !== undefined) row.expertise = updates.expertise;
   if (updates.email !== undefined) row.email = updates.email;
   if (updates.phone !== undefined) row.phone = updates.phone;
   if (updates.bio !== undefined) row.bio = updates.bio;

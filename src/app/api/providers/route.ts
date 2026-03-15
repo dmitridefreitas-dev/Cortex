@@ -22,7 +22,7 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { name, specialty, email, phone, bio } = body;
+    const { name, specialty, expertise, email, phone, bio } = body;
 
     if (!name || !specialty || !email || !phone) {
       return NextResponse.json(
@@ -35,6 +35,7 @@ export async function POST(req: NextRequest) {
       clinicId: CLINIC_ID,
       name,
       specialty,
+      expertise: expertise ?? "",
       email,
       phone,
       bio: bio ?? "",

@@ -130,6 +130,7 @@ export async function executeTool(
           id: p.id,
           name: p.name,
           specialty: p.specialty,
+          expertise: p.expertise,
           bio: p.bio,
         }));
       }
@@ -138,6 +139,7 @@ export async function executeTool(
         id: p.id,
         name: p.name,
         specialty: p.specialty,
+        expertise: p.expertise,
         bio: p.bio,
       }));
     }
@@ -181,12 +183,37 @@ export async function executeTool(
       }
 
       const limitedSlots = slots.slice(0, 24);
+
+      // Build formatted calendar text grouped by date
+      const slotsByDate: Record<string, { displayTime: string; startTime: string }[]> = {};
+      for (const s of limitedSlots) {
+        const dateKey = format(new Date(s.start), "EEEE, MMMM d");
+        if (!slotsByDate[dateKey]) slotsByDate[dateKey] = [];
+        slotsByDate[dateKey].push({
+          displayTime: format(new Date(s.start), "h:mm a"),
+          startTime: s.start,
+        });
+      }
+
+      const calendarLines: string[] = [];
+      for (const [dateLabel, times] of Object.entries(slotsByDate)) {
+        calendarLines.push(`📅 ${dateLabel}:`);
+        // Group times in rows of 4 for readability
+        for (let i = 0; i < times.length; i += 4) {
+          const row = times.slice(i, i + 4).map((t) => t.displayTime).join("  |  ");
+          calendarLines.push(`  ${row}`);
+        }
+        calendarLines.push(""); // blank line between dates
+      }
+
       return {
         dateFrom: date,
         dateTo: dateTo ?? date,
         providerName: slots[0].providerName,
         totalMatchingSlots: slots.length,
         truncated: limitedSlots.length < slots.length,
+        formattedCalendar: calendarLines.join("\n"),
+        displayInstruction: "Present the formattedCalendar text to the patient exactly as-is for readability. Ask them to pick a date and time.",
         availableSlots: limitedSlots.map((s) => ({
           startTime: s.start,
           date: format(new Date(s.start), "yyyy-MM-dd"),
@@ -449,6 +476,26 @@ export async function executeTool(
         success: true,
         patientId: patient.id,
         message: `Patient ${firstName} ${lastName} registered successfully.`,
+      };
+    }
+
+    case "recommend_provider": {
+      const { reason, patientAge } = args;
+      if (!reason) return { error: "reason is required" };
+
+      const providers = await getProviders(CLINIC_ID);
+      return {
+        patientNeed: reason,
+        patientAge: patientAge || "not specified",
+        providers: providers.map((p) => ({
+          id: p.id,
+          name: p.name,
+          specialty: p.specialty,
+          expertise: p.expertise,
+          bio: p.bio,
+        })),
+        instruction:
+          "Based on the patient's described need and the provider expertise above, recommend the best-matching provider. If the patient is a child (under 18), strongly prefer the pediatrician. Explain your recommendation briefly to the patient.",
       };
     }
 

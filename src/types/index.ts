@@ -24,6 +24,7 @@ export interface Provider {
   clinicId: string;
   name: string;
   specialty: string;
+  expertise: string;
   email: string;
   phone: string;
   bio: string;

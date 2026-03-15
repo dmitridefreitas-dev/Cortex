@@ -223,6 +223,27 @@ export const toolDeclarations: FunctionDeclaration[] = [
     },
   },
   {
+    name: "recommend_provider",
+    description:
+      "Given a patient's described symptoms, reason for visit, or healthcare needs, recommend the best-matching provider based on their expertise. Returns all providers with their expertise so you can reason about the best match.",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        reason: {
+          type: Type.STRING,
+          description:
+            "The patient's described symptoms, reason for visit, or healthcare need.",
+        },
+        patientAge: {
+          type: Type.STRING,
+          description:
+            "Optional. The patient's age or age category (e.g., 'child', 'adult', '5 years old'). Helps determine if a pediatrician is appropriate.",
+        },
+      },
+      required: ["reason"],
+    },
+  },
+  {
     name: "get_clinic_info",
     description:
       "Get general clinic information including hours, location, contact details, and policies.",

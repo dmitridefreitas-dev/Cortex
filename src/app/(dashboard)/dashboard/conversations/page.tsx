@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { format } from "date-fns";
 import type { Conversation, ChatMessage } from "@/types";
-import { Bot, User } from "lucide-react";
+import { Bot, Trash2, User } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface ConversationWithPatient extends Conversation {
@@ -14,6 +14,7 @@ export default function ConversationsPage() {
   const [conversations, setConversations] = useState<ConversationWithPatient[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/conversations")
@@ -26,6 +27,23 @@ export default function ConversationsPage() {
         setLoading(false);
       });
   }, []);
+
+  async function handleDeleteConversation(id: string, e: React.MouseEvent) {
+    e.stopPropagation();
+    if (!confirm("Delete this conversation? This cannot be undone.")) return;
+    setDeletingId(id);
+    try {
+      const res = await fetch(`/api/conversations?id=${id}`, { method: "DELETE" });
+      if (res.ok) {
+        setConversations((prev) => prev.filter((c) => c.id !== id));
+        if (selectedId === id) {
+          setSelectedId(conversations.find((c) => c.id !== id)?.id ?? null);
+        }
+      }
+    } finally {
+      setDeletingId(null);
+    }
+  }
 
   const selectedConv = conversations.find((c) => c.id === selectedId);
 
@@ -48,7 +66,7 @@ export default function ConversationsPage() {
                   <button
                     key={conv.id}
                     onClick={() => setSelectedId(conv.id)}
-                    className={`flex flex-col items-start gap-1 border-b p-4 text-left transition-colors hover:bg-muted/50 ${
+                    className={`group flex flex-col items-start gap-1 border-b p-4 text-left transition-colors hover:bg-muted/50 ${
                       selectedId === conv.id ? "bg-muted font-medium" : ""
                     }`}
                   >
@@ -58,6 +76,14 @@ export default function ConversationsPage() {
                       <span className="truncate font-medium text-slate-800">
                         {conv.patientName || "Unknown Patient"}
                       </span>
+                      <button
+                        onClick={(e) => handleDeleteConversation(conv.id, e)}
+                        disabled={deletingId === conv.id}
+                        className="ml-auto shrink-0 rounded p-1 text-muted-foreground opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100"
+                        title="Delete conversation"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
                     </div>
                     {/* Message count + time */}
                     <div className="flex w-full items-center justify-between text-xs text-muted-foreground">

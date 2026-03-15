@@ -12,7 +12,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Search, UserCircle } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Search, Trash2, UserCircle } from "lucide-react";
 import { format } from "date-fns";
 import type { Patient } from "@/types";
 
@@ -20,6 +21,7 @@ export default function PatientsPage() {
   const [patients, setPatients] = useState<Patient[]>([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/patients")
@@ -27,6 +29,19 @@ export default function PatientsPage() {
       .then((d) => setPatients(d.patients || []))
       .finally(() => setLoading(false));
   }, []);
+
+  async function handleDelete(patient: Patient) {
+    if (!confirm(`Delete ${patient.firstName} ${patient.lastName}? This will also remove all their appointments and intake responses.`)) return;
+    setDeletingId(patient.id);
+    try {
+      const res = await fetch(`/api/patients?id=${patient.id}`, { method: "DELETE" });
+      if (res.ok) {
+        setPatients((prev) => prev.filter((p) => p.id !== patient.id));
+      }
+    } finally {
+      setDeletingId(null);
+    }
+  }
 
   const filtered = patients.filter((p) => {
     const q = search.toLowerCase();
@@ -82,6 +97,7 @@ export default function PatientsPage() {
                   <TableHead>Phone</TableHead>
                   <TableHead>Date of Birth</TableHead>
                   <TableHead>Registered</TableHead>
+                  <TableHead className="w-12"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -99,6 +115,17 @@ export default function PatientsPage() {
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
                       {format(new Date(p.createdAt), "MMM d, yyyy")}
+                    </TableCell>
+                    <TableCell>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                        onClick={() => handleDelete(p)}
+                        disabled={deletingId === p.id}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
                     </TableCell>
                   </TableRow>
                 ))}

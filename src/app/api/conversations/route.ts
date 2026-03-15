@@ -1,5 +1,5 @@
-import { NextResponse } from "next/server";
-import { getConversations } from "@/lib/db/conversations";
+import { NextRequest, NextResponse } from "next/server";
+import { getConversations, deleteConversation } from "@/lib/db/conversations";
 import { getPatients } from "@/lib/db/patients";
 
 const CLINIC_ID = "clinic-1";
@@ -22,4 +22,17 @@ export async function GET() {
   }));
 
   return NextResponse.json({ conversations: enriched });
+}
+
+export async function DELETE(req: NextRequest) {
+  const { searchParams } = new URL(req.url);
+  const id = searchParams.get("id");
+  if (!id) {
+    return NextResponse.json({ error: "Conversation ID is required" }, { status: 400 });
+  }
+  const success = await deleteConversation(id);
+  if (!success) {
+    return NextResponse.json({ error: "Failed to delete conversation" }, { status: 500 });
+  }
+  return NextResponse.json({ success: true });
 }

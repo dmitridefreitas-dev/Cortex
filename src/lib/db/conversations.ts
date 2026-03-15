@@ -81,6 +81,11 @@ export async function summarizeConversation(
   return data ? rowToConversation(data) : undefined;
 }
 
+export async function deleteConversation(id: string): Promise<boolean> {
+  const { error } = await supabase.from("conversations").delete().eq("id", id);
+  return !error;
+}
+
 export async function setConversationPatientId(
   id: string,
   patientId: string

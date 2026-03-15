@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getPatients, createPatient } from "@/lib/db/patients";
+import { getPatients, createPatient, deletePatient } from "@/lib/db/patients";
 
 const CLINIC_ID = "clinic-1";
 
@@ -47,4 +47,17 @@ export async function POST(req: NextRequest) {
       { status: 500 }
     );
   }
+}
+
+export async function DELETE(req: NextRequest) {
+  const { searchParams } = new URL(req.url);
+  const id = searchParams.get("id");
+  if (!id) {
+    return NextResponse.json({ error: "Patient ID is required" }, { status: 400 });
+  }
+  const success = await deletePatient(id);
+  if (!success) {
+    return NextResponse.json({ error: "Failed to delete patient" }, { status: 500 });
+  }
+  return NextResponse.json({ success: true });
 }

@@ -96,6 +96,12 @@ export async function updatePatient(
   return data ? rowToPatient(data) : undefined;
 }
 
+export async function deletePatient(id: string): Promise<boolean> {
+  // FK cascade handles appointments and intake_responses cleanup
+  const { error } = await supabase.from("patients").delete().eq("id", id);
+  return !error;
+}
+
 export async function searchPatients(
   clinicId: string,
   query: string

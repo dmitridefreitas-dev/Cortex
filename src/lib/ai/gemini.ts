@@ -8,15 +8,23 @@ import { toolDeclarations } from "./tools";
 import { executeTool } from "./tool-executor";
 import { buildSystemPrompt } from "./prompts";
 import { getDefaultClinic } from "@/lib/db/clinics";
+import { getPatient } from "@/lib/db/patients";
+import { getAppointments } from "@/lib/db/appointments";
+import { getProvider } from "@/lib/db/providers";
+import { getService } from "@/lib/db/services";
 import type { ChatMessage } from "@/types";
 
 const genai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
 
 export async function chat(
-  messages: ChatMessage[]
+  messages: ChatMessage[],
+  knownPatientId?: string
 ): Promise<{ reply: string; toolCalls: Array<{ name: string; args: Record<string, string>; result: unknown }> }> {
   const clinic = await getDefaultClinic();
-  const systemPrompt = buildSystemPrompt(clinic);
+  const patientContext = knownPatientId
+    ? await buildKnownPatientContext(knownPatientId)
+    : undefined;
+  const systemPrompt = buildSystemPrompt(clinic, patientContext);
 
   const model = process.env.GEMINI_MODEL || "gemini-2.0-flash";
 
@@ -100,4 +108,44 @@ export async function chat(
   }
 
   return { reply: "I'm still processing your request. Please try again in a moment.", toolCalls: allToolCalls };
+}
+
+async function buildKnownPatientContext(
+  patientId: string
+): Promise<string | undefined> {
+  const patient = await getPatient(patientId);
+  if (!patient) return undefined;
+
+  const appointments = await getAppointments(patient.clinicId, {
+    patientId: patient.id,
+  });
+  const sortedAppointments = [...appointments].sort((a, b) =>
+    b.startTime.localeCompare(a.startTime)
+  );
+  const latestAppointment =
+    sortedAppointments.find((appointment) => appointment.status !== "cancelled") ??
+    sortedAppointments[0];
+
+  const provider = latestAppointment
+    ? await getProvider(latestAppointment.providerId)
+    : undefined;
+  const service = latestAppointment
+    ? await getService(latestAppointment.serviceId)
+    : undefined;
+
+  return [
+    "This patient has already been identified in the current conversation.",
+    `patientId: ${patient.id}`,
+    `name: ${patient.firstName} ${patient.lastName}`,
+    `email: ${patient.email}`,
+    `phone: ${patient.phone}`,
+    `dateOfBirth: ${patient.dateOfBirth || "unknown"}`,
+    latestAppointment
+      ? `mostRecentAppointment: ${latestAppointment.startTime} with ${provider?.name || latestAppointment.providerId} for ${service?.name || latestAppointment.serviceId}`
+      : "mostRecentAppointment: none on record",
+    provider
+      ? `preferredProviderSuggestion: ${provider.name} (${provider.id})`
+      : "preferredProviderSuggestion: none",
+    "Do not ask for the patient's stored basic info again unless they need to update it.",
+  ].join("\n");
 }

@@ -80,3 +80,16 @@ export async function summarizeConversation(
     .single();
   return data ? rowToConversation(data) : undefined;
 }
+
+export async function setConversationPatientId(
+  id: string,
+  patientId: string
+): Promise<Conversation | undefined> {
+  const { data } = await supabase
+    .from("conversations")
+    .update({ patient_id: patientId, updated_at: new Date().toISOString() })
+    .eq("id", id)
+    .select()
+    .single();
+  return data ? rowToConversation(data) : undefined;
+}

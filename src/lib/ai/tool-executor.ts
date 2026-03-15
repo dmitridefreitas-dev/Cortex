@@ -1,6 +1,10 @@
-import { getProviders, getProvidersByService } from "@/lib/db/providers";
+import {
+  getProvider,
+  getProviders,
+  getProvidersByService,
+} from "@/lib/db/providers";
 import { getServices, getServicesByProvider, getService } from "@/lib/db/services";
-import { getAvailableSlots } from "@/lib/availability";
+import { getAvailableSlots, getAvailableSlotsMultiDay } from "@/lib/availability";
 import {
   createAppointment,
   getAppointment,
@@ -26,6 +30,99 @@ export async function executeTool(
   args: Record<string, string | undefined>
 ): Promise<unknown> {
   switch (name) {
+    case "lookup_patient_memory": {
+      const { patientPhone, patientEmail } = args;
+      if (!patientPhone && !patientEmail) {
+        return { error: "patientPhone or patientEmail is required" };
+      }
+
+      let patient = patientPhone
+        ? await findPatientByPhone(CLINIC_ID, patientPhone)
+        : undefined;
+
+      if (!patient && patientEmail) {
+        patient = await findPatientByEmail(CLINIC_ID, patientEmail);
+      }
+
+      if (!patient) {
+        return {
+          found: false,
+          message:
+            "No existing patient was found with that phone number or email.",
+        };
+      }
+
+      const appointments = await getAppointments(CLINIC_ID, {
+        patientId: patient.id,
+      });
+      const sortedAppointments = [...appointments].sort((a, b) =>
+        b.startTime.localeCompare(a.startTime)
+      );
+      const latestAppointment =
+        sortedAppointments.find((apt) => apt.status !== "cancelled") ??
+        sortedAppointments[0];
+
+      const upcomingAppointment = [...appointments]
+        .filter(
+          (apt) =>
+            apt.status === "confirmed" && new Date(apt.startTime) >= new Date()
+        )
+        .sort((a, b) => a.startTime.localeCompare(b.startTime))[0];
+
+      const lastProvider = latestAppointment
+        ? await getProvider(latestAppointment.providerId)
+        : undefined;
+      const lastService = latestAppointment
+        ? await getService(latestAppointment.serviceId)
+        : undefined;
+      const upcomingProvider = upcomingAppointment
+        ? await getProvider(upcomingAppointment.providerId)
+        : undefined;
+      const upcomingService = upcomingAppointment
+        ? await getService(upcomingAppointment.serviceId)
+        : undefined;
+
+      return {
+        found: true,
+        patientId: patient.id,
+        patient: {
+          id: patient.id,
+          firstName: patient.firstName,
+          lastName: patient.lastName,
+          email: patient.email,
+          phone: patient.phone,
+          dateOfBirth: patient.dateOfBirth,
+        },
+        hasVisitedBefore: appointments.length > 0,
+        suggestedProvider: lastProvider
+          ? {
+              providerId: lastProvider.id,
+              providerName: lastProvider.name,
+              specialty: lastProvider.specialty,
+            }
+          : null,
+        lastAppointment: latestAppointment
+          ? {
+              appointmentId: latestAppointment.id,
+              startTime: latestAppointment.startTime,
+              status: latestAppointment.status,
+              providerId: latestAppointment.providerId,
+              providerName: lastProvider?.name,
+              serviceId: latestAppointment.serviceId,
+              serviceName: lastService?.name,
+            }
+          : null,
+        upcomingAppointment: upcomingAppointment
+          ? {
+              appointmentId: upcomingAppointment.id,
+              startTime: upcomingAppointment.startTime,
+              providerName: upcomingProvider?.name,
+              serviceName: upcomingService?.name,
+            }
+          : null,
+      };
+    }
+
     case "list_providers": {
       if (args.serviceId) {
         const providers = await getProvidersByService(args.serviceId);
@@ -67,19 +164,32 @@ export async function executeTool(
     }
 
     case "check_availability": {
-      const { providerId, serviceId, date } = args;
+      const { providerId, serviceId, date, dateTo } = args;
       if (!providerId || !serviceId || !date) {
         return { error: "Missing required parameters: providerId, serviceId, date" };
       }
-      const slots = await getAvailableSlots(providerId, serviceId, date);
+      const slots = dateTo
+        ? await getAvailableSlotsMultiDay(providerId, serviceId, date, dateTo)
+        : await getAvailableSlots(providerId, serviceId, date);
       if (slots.length === 0) {
-        return { message: "No available slots on this date.", availableSlots: [] };
+        return {
+          message: dateTo
+            ? "No available slots found in this date range."
+            : "No available slots on this date.",
+          availableSlots: [],
+        };
       }
+
+      const limitedSlots = slots.slice(0, 24);
       return {
-        date,
+        dateFrom: date,
+        dateTo: dateTo ?? date,
         providerName: slots[0].providerName,
-        availableSlots: slots.map((s) => ({
+        totalMatchingSlots: slots.length,
+        truncated: limitedSlots.length < slots.length,
+        availableSlots: limitedSlots.map((s) => ({
           startTime: s.start,
+          date: format(new Date(s.start), "yyyy-MM-dd"),
           displayTime: format(new Date(s.start), "h:mm a"),
         })),
       };
@@ -103,27 +213,35 @@ export async function executeTool(
       // Find or create patient
       let patientId = args.patientId;
       if (!patientId) {
-        if (!args.patientFirstName) {
-          return { error: "Patient first name is required." };
-        }
-        
-        const firstName = args.patientFirstName;
-        const lastName = args.patientLastName || "Unknown";
-        const email = args.patientEmail || `${firstName.toLowerCase().replace(/[^a-z0-9]/g, '')}@example.com`;
-        const phone = args.patientPhone || "0000000000";
-
-        // Check if patient exists
-        let patient = await findPatientByEmail(CLINIC_ID, email);
+        let patient = args.patientEmail
+          ? await findPatientByEmail(CLINIC_ID, args.patientEmail)
+          : undefined;
         if (!patient && args.patientPhone) {
-          patient = await findPatientByPhone(CLINIC_ID, phone);
+          patient = await findPatientByPhone(CLINIC_ID, args.patientPhone);
         }
+
         if (!patient) {
+          const missingFields = [
+            !args.patientFirstName && "patientFirstName",
+            !args.patientLastName && "patientLastName",
+            !args.patientEmail && "patientEmail",
+            !args.patientPhone && "patientPhone",
+            !args.patientDateOfBirth && "patientDateOfBirth",
+          ].filter(Boolean);
+
+          if (missingFields.length > 0) {
+            return {
+              error: `Missing required new patient fields: ${missingFields.join(", ")}`,
+            };
+          }
+
           patient = await createPatient({
             clinicId: CLINIC_ID,
-            firstName,
-            lastName,
-            email,
-            phone,
+            firstName: args.patientFirstName!,
+            lastName: args.patientLastName!,
+            email: args.patientEmail!,
+            phone: args.patientPhone!,
+            dateOfBirth: args.patientDateOfBirth,
           });
         }
         patientId = patient.id;
@@ -172,6 +290,7 @@ export async function executeTool(
       return {
         success: true,
         appointmentId: appointment.id,
+        patientId,
         message: `Appointment booked successfully!`,
         details: {
           date: format(new Date(startTime), "EEEE, MMMM d, yyyy"),

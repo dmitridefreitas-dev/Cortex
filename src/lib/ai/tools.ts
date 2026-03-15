@@ -3,6 +3,24 @@ import type { FunctionDeclaration } from "@google/genai";
 
 export const toolDeclarations: FunctionDeclaration[] = [
   {
+    name: "lookup_patient_memory",
+    description:
+      "Look up an existing patient by phone number or email to determine whether they have booked before, retrieve their stored basic information, and identify their most recent provider/appointment history.",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        patientPhone: {
+          type: Type.STRING,
+          description: "Patient phone number for lookup.",
+        },
+        patientEmail: {
+          type: Type.STRING,
+          description: "Patient email address for lookup.",
+        },
+      },
+    },
+  },
+  {
     name: "list_providers",
     description:
       "List all available healthcare providers/doctors at the clinic. Optionally filter by a specific service they offer.",
@@ -35,7 +53,7 @@ export const toolDeclarations: FunctionDeclaration[] = [
   {
     name: "check_availability",
     description:
-      "Check available appointment time slots for a specific provider and service on a given date. Returns a list of available start times.",
+      "Check available appointment time slots for a specific provider and service on a given date or across a date range. Use dateTo when searching across multiple days.",
     parameters: {
       type: Type.OBJECT,
       properties: {
@@ -50,7 +68,12 @@ export const toolDeclarations: FunctionDeclaration[] = [
         },
         date: {
           type: Type.STRING,
-          description: "The date to check in YYYY-MM-DD format.",
+          description: "The start date to check in YYYY-MM-DD format.",
+        },
+        dateTo: {
+          type: Type.STRING,
+          description:
+            "Optional end date in YYYY-MM-DD format when searching a date range.",
         },
       },
       required: ["providerId", "serviceId", "date"],
@@ -59,7 +82,7 @@ export const toolDeclarations: FunctionDeclaration[] = [
   {
     name: "book_appointment",
     description:
-      "Book an appointment for a patient. Requires provider, service, time, and patient information. The patient must be registered first or provide registration details.",
+      "Book an appointment for a patient. Requires provider, service, time, and patient identity. For returning patients, pass patientId. For new patients, pass their full name, phone, email, date of birth, and reason for visit so they can be created in the database.",
     parameters: {
       type: Type.OBJECT,
       properties: {
@@ -89,6 +112,10 @@ export const toolDeclarations: FunctionDeclaration[] = [
           type: Type.STRING,
           description: "Patient last name.",
         },
+        patientDateOfBirth: {
+          type: Type.STRING,
+          description: "Patient date of birth in YYYY-MM-DD format.",
+        },
         reason: {
           type: Type.STRING,
           description: "Reason for the visit, symptoms, or what the problem is.",
@@ -102,7 +129,7 @@ export const toolDeclarations: FunctionDeclaration[] = [
           description: "Optional patient phone number.",
         },
       },
-      required: ["providerId", "serviceId", "startTime", "reason", "patientFirstName"],
+      required: ["providerId", "serviceId", "startTime", "reason"],
     },
   },
   {

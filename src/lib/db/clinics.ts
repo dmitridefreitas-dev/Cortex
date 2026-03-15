@@ -2,6 +2,8 @@ import { supabase } from "@/lib/supabase";
 import type { Clinic } from "@/types";
 
 function rowToClinic(row: Record<string, unknown>): Clinic {
+  const settings = (row.settings ?? {}) as Partial<Clinic["settings"]>;
+
   return {
     id: row.id as string,
     name: row.name as string,
@@ -10,7 +12,22 @@ function rowToClinic(row: Record<string, unknown>): Clinic {
     email: row.email as string,
     timezone: row.timezone as string,
     businessHours: row.business_hours as Clinic["businessHours"],
-    settings: row.settings as Clinic["settings"],
+    settings: {
+      aiName: settings.aiName ?? "Cortex",
+      aiGreeting:
+        settings.aiGreeting ??
+        "Hello! I'm Cortex, the virtual receptionist. How can I help you today?",
+      aiTone: settings.aiTone ?? "friendly",
+      cancellationPolicy:
+        settings.cancellationPolicy ??
+        "Please cancel at least 24 hours before your appointment.",
+      minBookingNoticeHours: Number(settings.minBookingNoticeHours ?? 2) || 2,
+      maxBookingDaysAhead: Math.max(
+        Number(settings.maxBookingDaysAhead ?? 365) || 365,
+        365
+      ),
+      bufferMinutes: Number(settings.bufferMinutes ?? 10) || 10,
+    },
   };
 }
 

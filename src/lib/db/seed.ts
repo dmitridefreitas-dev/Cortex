@@ -26,7 +26,7 @@ export const defaultData: DatabaseSchema = {
         cancellationPolicy:
           "Please cancel at least 24 hours before your appointment to avoid a cancellation fee.",
         minBookingNoticeHours: 2,
-        maxBookingDaysAhead: 60,
+        maxBookingDaysAhead: 365,
         bufferMinutes: 10,
       },
     },

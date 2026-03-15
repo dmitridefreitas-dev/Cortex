@@ -5,13 +5,15 @@ import { getProvider } from "@/lib/db/providers";
 import { getDefaultClinic } from "@/lib/db/clinics";
 import type { TimeSlot } from "@/types";
 import {
-  parseISO,
-  format,
   addMinutes,
+  addHours,
+  addDays,
+  endOfDay,
+  format,
   isBefore,
   isAfter,
+  parseISO,
   startOfDay,
-  addDays,
 } from "date-fns";
 
 export async function getAvailableSlots(
@@ -28,6 +30,15 @@ export async function getAvailableSlots(
   const clinic = await getDefaultClinic();
   const duration = service.durationMinutes;
   const buffer = clinic.settings.bufferMinutes;
+  const { earliestBookableAt, latestBookableAt } = getBookingWindow(clinic);
+
+  const requestedDayStart = startOfDay(parseISO(date));
+  if (
+    isAfter(requestedDayStart, latestBookableAt) ||
+    isBefore(endOfDay(requestedDayStart), earliestBookableAt)
+  ) {
+    return [];
+  }
 
   // Check schedule overrides first
   const overrides = await getScheduleOverrides(providerId, date, date);
@@ -63,8 +74,6 @@ export async function getAvailableSlots(
   const dayEnd = parseISO(`${date}T${endTime}:00`);
 
   // Don't show slots in the past
-  const now = new Date();
-
   while (isBefore(current, dayEnd)) {
     const slotEnd = addMinutes(current, duration);
 
@@ -72,7 +81,7 @@ export async function getAvailableSlots(
     if (isAfter(slotEnd, dayEnd)) break;
 
     // Skip if slot is in the past
-    if (isBefore(current, now)) {
+    if (isBefore(current, earliestBookableAt) || isAfter(current, latestBookableAt)) {
       current = addMinutes(current, 15); // Move in 15-min increments
       continue;
     }
@@ -90,7 +99,7 @@ export async function getAvailableSlots(
     // Skip if slot overlaps with existing appointment
     const hasConflict = appointments.some((apt) => {
       const aptStart = parseISO(apt.startTime);
-      const aptEnd = addMinutes(parseISO(apt.startTime), duration);
+      const aptEnd = parseISO(apt.endTime);
       // Add buffer
       const aptStartWithBuffer = addMinutes(aptStart, -buffer);
       const aptEndWithBuffer = addMinutes(aptEnd, buffer);
@@ -122,10 +131,12 @@ export async function getAvailableSlotsMultiDay(
   dateTo: string
 ): Promise<TimeSlot[]> {
   const slots: TimeSlot[] = [];
-  let current = startOfDay(parseISO(dateFrom));
+  const start = startOfDay(parseISO(dateFrom));
   const end = startOfDay(parseISO(dateTo));
+  let current = isAfter(start, end) ? end : start;
+  const rangeEnd = isAfter(start, end) ? start : end;
 
-  while (!isAfter(current, end)) {
+  while (!isAfter(current, rangeEnd)) {
     const dateStr = format(current, "yyyy-MM-dd");
     const daySlots = await getAvailableSlots(providerId, serviceId, dateStr);
     slots.push(...daySlots);
@@ -141,14 +152,48 @@ export async function isSlotAvailable(
   durationMinutes: number
 ): Promise<boolean> {
   const date = startTime.split("T")[0];
-  const appointments = await getAppointmentsByProviderAndDate(
-    providerId,
-    date
-  );
   const clinic = await getDefaultClinic();
   const buffer = clinic.settings.bufferMinutes;
   const slotStart = parseISO(startTime);
   const slotEnd = addMinutes(slotStart, durationMinutes);
+  const { earliestBookableAt, latestBookableAt } = getBookingWindow(clinic);
+
+  if (isBefore(slotStart, earliestBookableAt) || isAfter(slotStart, latestBookableAt)) {
+    return false;
+  }
+
+  const overrides = await getScheduleOverrides(providerId, date, date);
+  const override = overrides[0];
+  if (override && !override.available) {
+    return false;
+  }
+
+  const schedules = await getSchedules(providerId);
+  const schedule = schedules.find((item) => item.dayOfWeek === slotStart.getDay());
+  if (!schedule && !override?.available) {
+    return false;
+  }
+
+  const startLimit = parseISO(
+    `${date}T${override?.startTime ?? schedule?.startTime ?? "09:00"}:00`
+  );
+  const endLimit = parseISO(
+    `${date}T${override?.endTime ?? schedule?.endTime ?? "17:00"}:00`
+  );
+
+  if (isBefore(slotStart, startLimit) || isAfter(slotEnd, endLimit)) {
+    return false;
+  }
+
+  if (schedule?.breakStart && schedule.breakEnd) {
+    const breakStart = parseISO(`${date}T${schedule.breakStart}:00`);
+    const breakEnd = parseISO(`${date}T${schedule.breakEnd}:00`);
+    if (isBefore(slotStart, breakEnd) && isAfter(slotEnd, breakStart)) {
+      return false;
+    }
+  }
+
+  const appointments = await getAppointmentsByProviderAndDate(providerId, date);
 
   return !appointments.some((apt) => {
     const aptStart = parseISO(apt.startTime);
@@ -157,4 +202,14 @@ export async function isSlotAvailable(
     const aptEndBuf = addMinutes(aptEnd, buffer);
     return isBefore(slotStart, aptEndBuf) && isAfter(slotEnd, aptStartBuf);
   });
+}
+
+function getBookingWindow(clinic: Awaited<ReturnType<typeof getDefaultClinic>>) {
+  const now = new Date();
+  return {
+    earliestBookableAt: addHours(now, clinic.settings.minBookingNoticeHours),
+    latestBookableAt: endOfDay(
+      addDays(startOfDay(now), clinic.settings.maxBookingDaysAhead)
+    ),
+  };
 }

@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { chat } from "@/lib/ai/gemini";
 import type { ChatMessage, Conversation } from "@/types";
-import { getConversation, createConversation, addMessageToConversation } from "@/lib/db/conversations";
+import {
+  getConversation,
+  createConversation,
+  addMessageToConversation,
+  setConversationPatientId,
+} from "@/lib/db/conversations";
 
 const CLINIC_ID = "clinic-1";
 
@@ -40,7 +45,7 @@ export async function POST(req: NextRequest) {
     const history = [...conversation.messages, userMessage];
 
     // Get AI response
-    const { reply, toolCalls } = await chat(history);
+    const { reply, toolCalls } = await chat(history, conversation.patientId);
 
     // Add assistant message
     const assistantMessage: ChatMessage = {
@@ -55,6 +60,11 @@ export async function POST(req: NextRequest) {
     };
     await addMessageToConversation(sessionId, assistantMessage);
 
+    const patientId = extractPatientId(toolCalls);
+    if (patientId && patientId !== conversation.patientId) {
+      await setConversationPatientId(sessionId, patientId);
+    }
+
     return NextResponse.json({
       reply,
       sessionId,
@@ -67,4 +77,29 @@ export async function POST(req: NextRequest) {
       { status: 500 }
     );
   }
+}
+
+function extractPatientId(
+  toolCalls: Array<{ name: string; args: Record<string, string>; result: unknown }>
+): string | undefined {
+  for (let index = toolCalls.length - 1; index >= 0; index -= 1) {
+    const result = toolCalls[index]?.result;
+    if (!result || typeof result !== "object") continue;
+    const resultRecord = result as Record<string, unknown>;
+
+    if (typeof resultRecord.patientId === "string") {
+      return resultRecord.patientId;
+    }
+
+    const patient = resultRecord.patient;
+    if (
+      patient &&
+      typeof patient === "object" &&
+      typeof (patient as Record<string, unknown>).id === "string"
+    ) {
+      return (patient as Record<string, string>).id;
+    }
+  }
+
+  return undefined;
 }

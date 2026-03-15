@@ -1,14 +1,17 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { format } from "date-fns";
 import type { Conversation, ChatMessage } from "@/types";
-import { MessageCircle, Bot } from "lucide-react";
+import { Bot, User } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
+interface ConversationWithPatient extends Conversation {
+  patientName?: string | null;
+}
+
 export default function ConversationsPage() {
-  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [conversations, setConversations] = useState<ConversationWithPatient[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
@@ -49,14 +52,21 @@ export default function ConversationsPage() {
                       selectedId === conv.id ? "bg-muted font-medium" : ""
                     }`}
                   >
-                    <div className="flex w-full items-center justify-between text-sm">
-                      <span className="truncate pr-2">
-                        {conv.messages.length} messages
+                    {/* Patient name row */}
+                    <div className="flex w-full items-center gap-2 text-sm">
+                      <User className="h-3.5 w-3.5 shrink-0 text-slate-400" />
+                      <span className="truncate font-medium text-slate-800">
+                        {conv.patientName || "Unknown Patient"}
                       </span>
-                      <span className="text-xs text-muted-foreground whitespace-nowrap">
+                    </div>
+                    {/* Message count + time */}
+                    <div className="flex w-full items-center justify-between text-xs text-muted-foreground">
+                      <span>{conv.messages.length} messages</span>
+                      <span className="whitespace-nowrap">
                         {format(new Date(conv.updatedAt), "h:mm a")}
                       </span>
                     </div>
+                    {/* Preview */}
                     <div className="w-full truncate text-xs text-muted-foreground">
                       {conv.summary || conv.messages.findLast((m) => m.role === "user")?.content || "No user messages"}
                     </div>
@@ -73,9 +83,12 @@ export default function ConversationsPage() {
             <>
               <div className="border-b bg-background p-4 flex items-center justify-between">
                 <div>
-                  <h3 className="font-medium">Session: {selectedConv.id}</h3>
+                  <h3 className="font-medium flex items-center gap-2">
+                    <User className="h-4 w-4 text-slate-400" />
+                    {(selectedConv as ConversationWithPatient).patientName || "Unknown Patient"}
+                  </h3>
                   <p className="text-xs text-muted-foreground">
-                    Started: {format(new Date(selectedConv.createdAt), "MMM d, yyyy h:mm a")}
+                    Session: {selectedConv.id} &middot; Started: {format(new Date(selectedConv.createdAt), "MMM d, yyyy h:mm a")}
                   </p>
                 </div>
               </div>

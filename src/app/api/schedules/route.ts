@@ -1,10 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSchedules, setSchedule } from "@/lib/db/schedules";
+import {
+  getSchedules,
+  getScheduleOverrides,
+  setSchedule,
+} from "@/lib/db/schedules";
 
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const providerId = searchParams.get("providerId");
+    const dateFrom = searchParams.get("dateFrom") || undefined;
+    const dateTo = searchParams.get("dateTo") || undefined;
 
     if (!providerId) {
       return NextResponse.json(
@@ -14,7 +20,12 @@ export async function GET(req: NextRequest) {
     }
 
     const schedules = await getSchedules(providerId);
-    return NextResponse.json({ schedules });
+    const overrides =
+      dateFrom || dateTo
+        ? await getScheduleOverrides(providerId, dateFrom, dateTo)
+        : [];
+
+    return NextResponse.json({ schedules, overrides });
   } catch {
     return NextResponse.json(
       { error: "Failed to fetch schedules" },

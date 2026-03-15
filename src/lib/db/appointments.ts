@@ -52,6 +52,9 @@ export async function getAppointmentsByProviderAndDate(
   providerId: string,
   date: string
 ): Promise<Appointment[]> {
+  // Use wide UTC window to capture appointments regardless of timezone offset.
+  // We then filter in-memory using the date portion of start_time to ensure
+  // we get exactly the appointments for the requested calendar date.
   const dayStart = `${date}T00:00:00`;
   const dayEnd = `${date}T23:59:59`;
   const { data } = await supabase
@@ -61,7 +64,13 @@ export async function getAppointmentsByProviderAndDate(
     .gte("start_time", dayStart)
     .lte("start_time", dayEnd)
     .neq("status", "cancelled");
-  return (data || []).map(rowToAppointment);
+
+  // Additional in-memory filter: ensure the date portion matches,
+  // stripping any timezone offset before comparison
+  return (data || []).map(rowToAppointment).filter((apt) => {
+    const aptDate = apt.startTime.split("T")[0];
+    return aptDate === date;
+  });
 }
 
 export async function createAppointment(

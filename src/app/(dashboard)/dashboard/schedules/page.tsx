@@ -52,7 +52,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
-import type { Provider, Schedule, ScheduleOverride } from "@/types";
+import type { Appointment, Provider, Schedule, ScheduleOverride } from "@/types";
 
 const DAY_NAMES = [
   "Sunday",
@@ -97,6 +97,7 @@ export default function SchedulesPage() {
   const [overrides, setOverrides] = useState<ScheduleOverride[]>([]);
   const [loadingProviders, setLoadingProviders] = useState(true);
   const [loadingSchedules, setLoadingSchedules] = useState(false);
+  const [appointments, setAppointments] = useState<(Appointment & { patientName?: string; serviceName?: string })[]>([]);
   const [saving, setSaving] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [editing, setEditing] = useState<EditingSchedule>(EMPTY_EDIT);
@@ -130,11 +131,19 @@ export default function SchedulesPage() {
         dateFrom: `${year}-01-01`,
         dateTo: `${year}-12-31`,
       });
-      const res = await fetch(`/api/schedules?${params.toString()}`);
-      if (!res.ok) throw new Error("Failed to fetch schedules");
-      const data = await res.json();
-      setSchedules(data.schedules ?? []);
-      setOverrides(data.overrides ?? []);
+      const [schedRes, aptRes] = await Promise.all([
+        fetch(`/api/schedules?${params.toString()}`),
+        fetch(`/api/appointments?providerId=${providerId}&dateFrom=${year}-01-01&dateTo=${year}-12-31`),
+      ]);
+      if (!schedRes.ok) throw new Error("Failed to fetch schedules");
+      const schedData = await schedRes.json();
+      setSchedules(schedData.schedules ?? []);
+      setOverrides(schedData.overrides ?? []);
+
+      if (aptRes.ok) {
+        const aptData = await aptRes.json();
+        setAppointments(aptData.appointments ?? []);
+      }
     } catch (err) {
       console.error(err);
     } finally {
@@ -148,11 +157,19 @@ export default function SchedulesPage() {
     } else {
       setSchedules([]);
       setOverrides([]);
+      setAppointments([]);
     }
   }, [selectedProviderId, focusDate, fetchCalendarData]);
 
   function getScheduleForDay(dayOfWeek: number): Schedule | undefined {
     return schedules.find((schedule) => schedule.dayOfWeek === dayOfWeek);
+  }
+
+  function getAppointmentsForDate(date: Date) {
+    const dateStr = format(date, "yyyy-MM-dd");
+    return appointments.filter(
+      (apt) => apt.status !== "cancelled" && apt.startTime.startsWith(dateStr)
+    );
   }
 
   function openEdit(dayOfWeek: number) {
@@ -362,6 +379,12 @@ export default function SchedulesPage() {
                         );
                         const inMonth = isSameMonth(day, focusDate);
                         const isSelected = isSameDay(day, selectedDate);
+                        const dayAppts = getAppointmentsForDate(day);
+                        const sortedAppts = [...dayAppts].sort((a, b) =>
+                          a.startTime.localeCompare(b.startTime)
+                        );
+                        const visibleAppts = sortedAppts.slice(0, 3);
+                        const overflowCount = sortedAppts.length - visibleAppts.length;
 
                         return (
                           <button
@@ -369,7 +392,7 @@ export default function SchedulesPage() {
                             type="button"
                             onClick={() => setSelectedDate(day)}
                             className={cn(
-                              "min-h-28 rounded-[24px] border p-3 text-left transition-transform hover:-translate-y-0.5",
+                              "min-h-44 rounded-[24px] border p-3 text-left transition-transform hover:-translate-y-0.5 flex flex-col",
                               !inMonth && "opacity-35",
                               isSelected && "ring-2 ring-blue-500 ring-offset-2 ring-offset-white",
                               availability.status === "available" &&
@@ -380,6 +403,7 @@ export default function SchedulesPage() {
                                 "border-slate-200 bg-slate-50"
                             )}
                           >
+                            {/* Header: day number + status dot */}
                             <div className="flex items-center justify-between">
                               <span
                                 className={cn(
@@ -391,23 +415,38 @@ export default function SchedulesPage() {
                               >
                                 {format(day, "d")}
                               </span>
-                              <span
-                                className={cn(
-                                  "h-2.5 w-2.5 rounded-full",
-                                  availability.status === "available" &&
-                                    "bg-blue-500",
-                                  availability.status === "custom" &&
-                                    "bg-white",
-                                  availability.status === "off" &&
-                                    "bg-slate-300"
+                              <div className="flex items-center gap-1.5">
+                                {dayAppts.length > 0 && (
+                                  <span
+                                    className={cn(
+                                      "rounded-full px-1.5 py-0.5 text-[10px] font-semibold leading-none",
+                                      availability.status === "custom"
+                                        ? "bg-white/20 text-white"
+                                        : "bg-blue-600 text-white"
+                                    )}
+                                  >
+                                    {dayAppts.length}
+                                  </span>
                                 )}
-                              />
+                                <span
+                                  className={cn(
+                                    "h-2.5 w-2.5 rounded-full",
+                                    availability.status === "available" &&
+                                      "bg-blue-500",
+                                    availability.status === "custom" &&
+                                      "bg-white",
+                                    availability.status === "off" &&
+                                      "bg-slate-300"
+                                  )}
+                                />
+                              </div>
                             </div>
 
-                            <div className="mt-6 space-y-1">
+                            {/* Schedule hours */}
+                            <div className="mt-2 space-y-0.5">
                               <p
                                 className={cn(
-                                  "text-xs font-medium",
+                                  "text-[11px] font-medium",
                                   availability.status === "custom"
                                     ? "text-blue-100"
                                     : availability.status === "off"
@@ -415,19 +454,43 @@ export default function SchedulesPage() {
                                       : "text-blue-700"
                                 )}
                               >
-                                {availability.label}
-                              </p>
-                              <p
-                                className={cn(
-                                  "text-xs leading-5",
-                                  availability.status === "custom"
-                                    ? "text-white/80"
-                                    : "text-slate-500"
-                                )}
-                              >
-                                {availability.hours || "No clinic hours"}
+                                {availability.hours || "No hours"}
                               </p>
                             </div>
+
+                            {/* Appointment pills */}
+                            {visibleAppts.length > 0 && (
+                              <div className="mt-auto flex flex-col gap-1 pt-2">
+                                {visibleAppts.map((apt) => (
+                                  <div
+                                    key={apt.id}
+                                    className={cn(
+                                      "rounded-lg px-1.5 py-0.5 text-[10px] font-medium leading-tight truncate",
+                                      availability.status === "custom"
+                                        ? "bg-white/15 text-white/90"
+                                        : apt.status === "confirmed"
+                                          ? "bg-green-100 text-green-800"
+                                          : "bg-blue-100 text-blue-800"
+                                    )}
+                                  >
+                                    {format(new Date(apt.startTime), "h:mm")}-
+                                    {format(new Date(apt.endTime), "h:mm a")}
+                                  </div>
+                                ))}
+                                {overflowCount > 0 && (
+                                  <span
+                                    className={cn(
+                                      "text-[10px] font-medium",
+                                      availability.status === "custom"
+                                        ? "text-white/60"
+                                        : "text-slate-400"
+                                    )}
+                                  >
+                                    +{overflowCount} more
+                                  </span>
+                                )}
+                              </div>
+                            )}
                           </button>
                         );
                       })}
@@ -550,6 +613,59 @@ export default function SchedulesPage() {
                         : "Weekly template"}
                     </p>
                   </div>
+
+                  {/* Booked appointments for this day */}
+                  {(() => {
+                    const dayAppts = getAppointmentsForDate(selectedDate);
+                    return dayAppts.length > 0 ? (
+                      <div className="rounded-[24px] border border-blue-100 bg-white p-4">
+                        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
+                          Booked Appointments ({dayAppts.length})
+                        </p>
+                        <div className="mt-3 space-y-2">
+                          {dayAppts
+                            .sort((a, b) => a.startTime.localeCompare(b.startTime))
+                            .map((apt) => (
+                              <div
+                                key={apt.id}
+                                className="flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50 px-3 py-2"
+                              >
+                                <div>
+                                  <p className="text-sm font-medium text-slate-800">
+                                    {format(new Date(apt.startTime), "h:mm a")} –{" "}
+                                    {format(new Date(apt.endTime), "h:mm a")}
+                                  </p>
+                                  <p className="text-xs text-slate-500">
+                                    {apt.patientName || "Patient"} · {apt.serviceName || "Service"}
+                                  </p>
+                                </div>
+                                <Badge
+                                  className={cn(
+                                    "rounded-full text-[10px]",
+                                    apt.status === "confirmed"
+                                      ? "bg-green-100 text-green-700"
+                                      : apt.status === "completed"
+                                        ? "bg-blue-100 text-blue-700"
+                                        : "bg-slate-100 text-slate-600"
+                                  )}
+                                >
+                                  {apt.status}
+                                </Badge>
+                              </div>
+                            ))}
+                        </div>
+                      </div>
+                    ) : selectedAvailability.status !== "off" ? (
+                      <div className="rounded-[24px] border border-blue-100 bg-white p-4">
+                        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
+                          Booked Appointments
+                        </p>
+                        <p className="mt-2 text-sm text-slate-500">
+                          No appointments booked for this day.
+                        </p>
+                      </div>
+                    ) : null;
+                  })()}
                 </CardContent>
               </Card>
 

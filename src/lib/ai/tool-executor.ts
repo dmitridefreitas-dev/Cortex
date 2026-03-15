@@ -21,9 +21,55 @@ import { getDefaultClinic } from "@/lib/db/clinics";
 import { searchFAQ, getFAQEntries } from "@/lib/db/faq";
 import { isSlotAvailable } from "@/lib/availability";
 import { sendNotification } from "@/lib/notifications";
-import { addMinutes, format } from "date-fns";
+import { addDays, addMinutes, format, isValid, parseISO } from "date-fns";
 
 const CLINIC_ID = "clinic-1";
+
+function normalizeDate(input: string): string | null {
+  // Already YYYY-MM-DD (with optional zero-padding)
+  const isoMatch = input.match(/^\d{4}-\d{1,2}-\d{1,2}$/);
+  if (isoMatch) {
+    const d = parseISO(input);
+    return isValid(d) ? format(d, "yyyy-MM-dd") : null;
+  }
+  // Try JS Date constructor for natural language / other formats
+  const parsed = new Date(input);
+  return isValid(parsed) ? format(parsed, "yyyy-MM-dd") : null;
+}
+
+function buildFormattedCalendar(
+  slots: { start: string; providerName: string }[]
+): { formattedCalendar: string; slotList: { startTime: string; date: string; displayTime: string }[] } {
+  const limited = slots.slice(0, 24);
+  const slotsByDate: Record<string, { displayTime: string; startTime: string }[]> = {};
+  for (const s of limited) {
+    const dateKey = format(new Date(s.start), "EEEE, MMMM d");
+    if (!slotsByDate[dateKey]) slotsByDate[dateKey] = [];
+    slotsByDate[dateKey].push({
+      displayTime: format(new Date(s.start), "h:mm a"),
+      startTime: s.start,
+    });
+  }
+
+  const calendarLines: string[] = [];
+  for (const [dateLabel, times] of Object.entries(slotsByDate)) {
+    calendarLines.push(`📅 ${dateLabel}:`);
+    for (let i = 0; i < times.length; i += 4) {
+      const row = times.slice(i, i + 4).map((t) => t.displayTime).join("  |  ");
+      calendarLines.push(`  ${row}`);
+    }
+    calendarLines.push("");
+  }
+
+  return {
+    formattedCalendar: calendarLines.join("\n"),
+    slotList: limited.map((s) => ({
+      startTime: s.start,
+      date: format(new Date(s.start), "yyyy-MM-dd"),
+      displayTime: format(new Date(s.start), "h:mm a"),
+    })),
+  };
+}
 
 export async function executeTool(
   name: string,
@@ -166,59 +212,72 @@ export async function executeTool(
     }
 
     case "check_availability": {
-      const { providerId, serviceId, date, dateTo } = args;
-      if (!providerId || !serviceId || !date) {
+      const { providerId, serviceId, dateTo: rawDateTo } = args;
+      let { date: rawDate } = args;
+      if (!providerId || !serviceId || !rawDate) {
         return { error: "Missing required parameters: providerId, serviceId, date" };
       }
-      const slots = dateTo
-        ? await getAvailableSlotsMultiDay(providerId, serviceId, date, dateTo)
-        : await getAvailableSlots(providerId, serviceId, date);
-      if (slots.length === 0) {
+
+      // Normalize dates to YYYY-MM-DD
+      const normalizedDate = normalizeDate(rawDate);
+      if (!normalizedDate) {
         return {
-          message: dateTo
-            ? "No available slots found in this date range."
-            : "No available slots on this date.",
-          availableSlots: [],
+          error: `Could not parse date "${rawDate}". Please use YYYY-MM-DD format (e.g., 2026-03-17).`,
+        };
+      }
+      rawDate = normalizedDate;
+      const normalizedDateTo = rawDateTo ? normalizeDate(rawDateTo) : undefined;
+
+      const provider = await getProvider(providerId);
+      if (!provider) {
+        return { error: `Provider "${providerId}" not found.` };
+      }
+
+      const slots = normalizedDateTo
+        ? await getAvailableSlotsMultiDay(providerId, serviceId, rawDate, normalizedDateTo)
+        : await getAvailableSlots(providerId, serviceId, rawDate);
+
+      if (slots.length === 0) {
+        // Auto-expand: check the next 5 days if single-date query returned nothing
+        if (!normalizedDateTo) {
+          const expandEnd = format(addDays(parseISO(rawDate), 5), "yyyy-MM-dd");
+          const nextSlots = await getAvailableSlotsMultiDay(providerId, serviceId, rawDate, expandEnd);
+          if (nextSlots.length > 0) {
+            const { formattedCalendar, slotList } = buildFormattedCalendar(nextSlots);
+            return {
+              message: `No slots on ${format(parseISO(rawDate), "EEEE, MMMM d")} for ${provider.name}. Here are the next available times:`,
+              dateFrom: rawDate,
+              dateTo: expandEnd,
+              providerName: provider.name,
+              totalMatchingSlots: nextSlots.length,
+              formattedCalendar,
+              displayInstruction: "Present the formattedCalendar text to the patient exactly as-is. Explain that the originally requested date had no openings but these nearby dates do.",
+              availableSlots: slotList,
+            };
+          }
+        }
+
+        return {
+          message: `No available slots found for ${provider.name}.`,
+          checkedDate: rawDate,
+          checkedDateTo: normalizedDateTo ?? null,
+          dayOfWeek: format(parseISO(rawDate), "EEEE"),
+          providerName: provider.name,
+          suggestion: "Try a different date range or ask if the patient would like to see a different provider.",
         };
       }
 
-      const limitedSlots = slots.slice(0, 24);
-
-      // Build formatted calendar text grouped by date
-      const slotsByDate: Record<string, { displayTime: string; startTime: string }[]> = {};
-      for (const s of limitedSlots) {
-        const dateKey = format(new Date(s.start), "EEEE, MMMM d");
-        if (!slotsByDate[dateKey]) slotsByDate[dateKey] = [];
-        slotsByDate[dateKey].push({
-          displayTime: format(new Date(s.start), "h:mm a"),
-          startTime: s.start,
-        });
-      }
-
-      const calendarLines: string[] = [];
-      for (const [dateLabel, times] of Object.entries(slotsByDate)) {
-        calendarLines.push(`📅 ${dateLabel}:`);
-        // Group times in rows of 4 for readability
-        for (let i = 0; i < times.length; i += 4) {
-          const row = times.slice(i, i + 4).map((t) => t.displayTime).join("  |  ");
-          calendarLines.push(`  ${row}`);
-        }
-        calendarLines.push(""); // blank line between dates
-      }
+      const { formattedCalendar, slotList } = buildFormattedCalendar(slots);
 
       return {
-        dateFrom: date,
-        dateTo: dateTo ?? date,
-        providerName: slots[0].providerName,
+        dateFrom: rawDate,
+        dateTo: normalizedDateTo ?? rawDate,
+        providerName: provider.name,
         totalMatchingSlots: slots.length,
-        truncated: limitedSlots.length < slots.length,
-        formattedCalendar: calendarLines.join("\n"),
+        truncated: slots.length > 24,
+        formattedCalendar,
         displayInstruction: "Present the formattedCalendar text to the patient exactly as-is for readability. Ask them to pick a date and time.",
-        availableSlots: limitedSlots.map((s) => ({
-          startTime: s.start,
-          date: format(new Date(s.start), "yyyy-MM-dd"),
-          displayTime: format(new Date(s.start), "h:mm a"),
-        })),
+        availableSlots: slotList,
       };
     }
 

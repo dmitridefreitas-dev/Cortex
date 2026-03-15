@@ -12,7 +12,8 @@
       "Bash(curl -s -X POST http://localhost:3000/api/chat -H \"Content-Type: application/json\" -d '{\"\"message\"\":\"\"I want to book an appointment\"\",\"\"sessionId\"\":\"\"test-debug-002\"\"}')",
       "WebSearch",
       "WebFetch(domain:ai.google.dev)",
-      "Bash(curl -s -X POST http://localhost:3000/api/chat -H \"Content-Type: application/json\" -d '{\"\"message\"\":\"\"I want to book an appointment\"\",\"\"sessionId\"\":\"\"test-debug-003\"\"}')"
+      "Bash(curl -s -X POST http://localhost:3000/api/chat -H \"Content-Type: application/json\" -d '{\"\"message\"\":\"\"I want to book an appointment\"\",\"\"sessionId\"\":\"\"test-debug-003\"\"}')",
+      "Bash(grep -E \"\\\\.\\(tsx?|jsx?\\)$\")"
     ]
   }
 }

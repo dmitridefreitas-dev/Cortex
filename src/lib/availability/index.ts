@@ -16,6 +16,15 @@ import {
   startOfDay,
 } from "date-fns";
 
+/**
+ * Strip timezone offset from ISO string so parseISO treats it as local time.
+ * This ensures consistent comparisons between schedule times (local, no TZ)
+ * and appointment times (TIMESTAMPTZ from Supabase, with TZ offset).
+ */
+function stripTZ(isoString: string): string {
+  return isoString.replace(/([+-]\d{2}(:\d{2})?|Z)$/, "");
+}
+
 export async function getAvailableSlots(
   providerId: string,
   serviceId: string,
@@ -97,10 +106,11 @@ export async function getAvailableSlots(
     }
 
     // Skip if slot overlaps with existing appointment
+    // stripTZ ensures appointment times (TIMESTAMPTZ/UTC) are compared
+    // in the same frame as schedule-derived slot times (local, no TZ)
     const hasConflict = appointments.some((apt) => {
-      const aptStart = parseISO(apt.startTime);
-      const aptEnd = parseISO(apt.endTime);
-      // Add buffer
+      const aptStart = parseISO(stripTZ(apt.startTime));
+      const aptEnd = parseISO(stripTZ(apt.endTime));
       const aptStartWithBuffer = addMinutes(aptStart, -buffer);
       const aptEndWithBuffer = addMinutes(aptEnd, buffer);
       return (
@@ -154,7 +164,7 @@ export async function isSlotAvailable(
   const date = startTime.split("T")[0];
   const clinic = await getDefaultClinic();
   const buffer = clinic.settings.bufferMinutes;
-  const slotStart = parseISO(startTime);
+  const slotStart = parseISO(stripTZ(startTime));
   const slotEnd = addMinutes(slotStart, durationMinutes);
   const { earliestBookableAt, latestBookableAt } = getBookingWindow(clinic);
 
@@ -196,8 +206,8 @@ export async function isSlotAvailable(
   const appointments = await getAppointmentsByProviderAndDate(providerId, date);
 
   return !appointments.some((apt) => {
-    const aptStart = parseISO(apt.startTime);
-    const aptEnd = parseISO(apt.endTime);
+    const aptStart = parseISO(stripTZ(apt.startTime));
+    const aptEnd = parseISO(stripTZ(apt.endTime));
     const aptStartBuf = addMinutes(aptStart, -buffer);
     const aptEndBuf = addMinutes(aptEnd, buffer);
     return isBefore(slotStart, aptEndBuf) && isAfter(slotEnd, aptStartBuf);

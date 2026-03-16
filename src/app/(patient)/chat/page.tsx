@@ -1,8 +1,7 @@
 "use client";
 
-import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ArrowLeft, Bot, Loader2, Send } from "lucide-react";
+import { Bot, Loader2, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -140,12 +139,6 @@ export default function ChatPage() {
       <header className="relative border-b border-blue-100/80 bg-white/85 px-4 py-4 backdrop-blur sm:px-6">
         <div className="mx-auto flex max-w-5xl items-center gap-4">
           <div className="flex items-center gap-3">
-            <Link
-              href="/"
-              className="flex h-11 w-11 items-center justify-center rounded-2xl border border-blue-100 bg-white text-slate-500 shadow-sm transition-colors hover:bg-blue-50 hover:text-slate-700"
-            >
-              <ArrowLeft className="h-5 w-5" />
-            </Link>
             <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-600 text-white shadow-lg shadow-blue-500/20">
               <Bot className="h-6 w-6" />
             </div>

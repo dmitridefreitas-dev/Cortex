@@ -251,7 +251,8 @@ export async function executeTool(
               providerName: provider.name,
               totalMatchingSlots: nextSlots.length,
               formattedCalendar,
-              displayInstruction: "Present the formattedCalendar text to the patient exactly as-is. Explain that the originally requested date had no openings but these nearby dates do.",
+              earliestSlot: slotList[0] ?? null,
+              displayInstruction: "If the patient asked for 'earliest', 'ASAP', 'first available', or 'soonest', immediately book the earliestSlot without showing the calendar. Otherwise, present the formattedCalendar text to the patient exactly as-is.",
               availableSlots: slotList,
             };
           }
@@ -276,7 +277,8 @@ export async function executeTool(
         totalMatchingSlots: slots.length,
         truncated: slots.length > 24,
         formattedCalendar,
-        displayInstruction: "Present the formattedCalendar text to the patient exactly as-is for readability. Ask them to pick a date and time.",
+        earliestSlot: slotList[0] ?? null,
+        displayInstruction: "If the patient asked for 'earliest', 'ASAP', 'first available', or 'soonest', immediately book the earliestSlot without showing the calendar. Otherwise, present the formattedCalendar text to the patient exactly as-is and ask them to pick a date and time.",
         availableSlots: slotList,
       };
     }

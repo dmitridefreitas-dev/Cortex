@@ -9,7 +9,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: true });
   }
 
-  if (password === correct) {
+  if (password.trim() === correct.trim()) {
     const res = NextResponse.json({ success: true });
     res.cookies.set("dashboard_auth", "1", {
       httpOnly: true,

@@ -5,8 +5,16 @@ export async function POST(req: NextRequest) {
   const correct = process.env.DASHBOARD_PASSWORD;
 
   if (!correct) {
-    // No password configured — allow access
-    return NextResponse.json({ success: true });
+    // No password configured — allow access, still set cookie for middleware
+    const res = NextResponse.json({ success: true });
+    res.cookies.set("dashboard_auth", "1", {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      maxAge: 60 * 60 * 24 * 7,
+      path: "/",
+    });
+    return res;
   }
 
   if (password.trim() === correct.trim()) {

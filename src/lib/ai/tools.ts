@@ -273,4 +273,50 @@ export const toolDeclarations: FunctionDeclaration[] = [
       required: ["question"],
     },
   },
+  {
+    name: "update_patient_info",
+    description:
+      "Update a patient's contact information (phone, email, or date of birth) when they report a change during the conversation.",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        patientId: {
+          type: Type.STRING,
+          description: "The patient's ID.",
+        },
+        phone: {
+          type: Type.STRING,
+          description: "New phone number.",
+        },
+        email: {
+          type: Type.STRING,
+          description: "New email address.",
+        },
+        dateOfBirth: {
+          type: Type.STRING,
+          description: "New date of birth in YYYY-MM-DD format.",
+        },
+      },
+      required: ["patientId"],
+    },
+  },
+  {
+    name: "request_human_handoff",
+    description:
+      "Escalate the conversation to a human staff member when the AI cannot resolve the patient's request. Use for billing disputes, complaints, complex medical questions, or when the patient explicitly requests to speak with a human.",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        reason: {
+          type: Type.STRING,
+          description: "Brief description of why handoff is needed.",
+        },
+        urgency: {
+          type: Type.STRING,
+          description: "Urgency level: low, normal, or high.",
+        },
+      },
+      required: ["reason"],
+    },
+  },
 ];

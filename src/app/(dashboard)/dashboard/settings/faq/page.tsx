@@ -5,7 +5,14 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Trash2, Plus, ArrowLeft } from "lucide-react";
+import { Trash2, Plus, ArrowLeft, Pencil } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 import type { FAQEntry } from "@/types";
 import Link from "next/link";
 
@@ -15,6 +22,11 @@ export default function FAQSettingsPage() {
   const [newQuestion, setNewQuestion] = useState("");
   const [newAnswer, setNewAnswer] = useState("");
   const [adding, setAdding] = useState(false);
+  const [editingFaq, setEditingFaq] = useState<FAQEntry | null>(null);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editQuestion, setEditQuestion] = useState("");
+  const [editAnswer, setEditAnswer] = useState("");
+  const [editSubmitting, setEditSubmitting] = useState(false);
 
   async function fetchFaqs() {
     const res = await fetch("/api/clinic/faq");
@@ -66,6 +78,38 @@ export default function FAQSettingsPage() {
     await refreshFaqs();
   }
 
+  function openEditDialog(faq: FAQEntry) {
+    setEditingFaq(faq);
+    setEditQuestion(faq.question);
+    setEditAnswer(faq.answer);
+    setEditDialogOpen(true);
+  }
+
+  async function handleEditSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!editingFaq) return;
+    setEditSubmitting(true);
+    try {
+      const res = await fetch("/api/clinic/faq", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: editingFaq.id,
+          question: editQuestion,
+          answer: editAnswer,
+        }),
+      });
+      if (!res.ok) throw new Error("Failed to update FAQ");
+      setEditDialogOpen(false);
+      setEditingFaq(null);
+      await refreshFaqs();
+    } catch (err) {
+      console.error("Error updating FAQ:", err);
+    } finally {
+      setEditSubmitting(false);
+    }
+  }
+
   return (
     <div>
       <div className="mb-6 flex items-center justify-between">
@@ -93,14 +137,24 @@ export default function FAQSettingsPage() {
               <Card key={faq.id}>
                 <CardHeader className="pb-2 flex flex-row items-start justify-between">
                   <CardTitle className="text-lg">{faq.question}</CardTitle>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="text-red-500 -mt-2 -mr-2 shrink-0"
-                    onClick={() => handleDelete(faq.id)}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
+                  <div className="flex -mt-2 -mr-2 shrink-0">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => openEditDialog(faq)}
+                      aria-label={`Edit FAQ`}
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="text-red-500"
+                      onClick={() => handleDelete(faq.id)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </CardHeader>
                 <CardContent>
                   <p className="text-sm text-muted-foreground whitespace-pre-wrap">{faq.answer}</p>
@@ -152,6 +206,49 @@ export default function FAQSettingsPage() {
           </Card>
         </div>
       </div>
+
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit FAQ</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleEditSubmit} className="space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="edit-question">Question</Label>
+              <Input
+                id="edit-question"
+                placeholder="e.g. Do you have parking?"
+                value={editQuestion}
+                onChange={(e) => setEditQuestion(e.target.value)}
+                required
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="edit-answer">Answer</Label>
+              <Textarea
+                id="edit-answer"
+                placeholder="Provide a clear, helpful answer."
+                value={editAnswer}
+                onChange={(e) => setEditAnswer(e.target.value)}
+                rows={4}
+                required
+              />
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setEditDialogOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={editSubmitting}>
+                {editSubmitting ? "Saving..." : "Save Changes"}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

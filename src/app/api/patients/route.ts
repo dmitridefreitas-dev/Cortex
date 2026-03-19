@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getPatients, createPatient, deletePatient } from "@/lib/db/patients";
+import { getPatients, createPatient, updatePatient, deletePatient } from "@/lib/db/patients";
 
 const CLINIC_ID = process.env.CLINIC_ID ?? "clinic-1";
 
@@ -46,6 +46,26 @@ export async function POST(req: NextRequest) {
       { error: "Failed to create patient" },
       { status: 500 }
     );
+  }
+}
+
+export async function PATCH(req: NextRequest) {
+  try {
+    const body = await req.json();
+    const { id, ...updates } = body;
+
+    if (!id) {
+      return NextResponse.json({ error: "Patient ID is required" }, { status: 400 });
+    }
+
+    const patient = await updatePatient(id, updates);
+    if (!patient) {
+      return NextResponse.json({ error: "Patient not found" }, { status: 404 });
+    }
+
+    return NextResponse.json({ patient });
+  } catch {
+    return NextResponse.json({ error: "Failed to update patient" }, { status: 500 });
   }
 }
 

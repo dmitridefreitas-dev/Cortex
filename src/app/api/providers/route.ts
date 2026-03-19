@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   getProviders,
   createProvider,
+  updateProvider,
   deleteProvider,
 } from "@/lib/db/providers";
 
@@ -47,6 +48,26 @@ export async function POST(req: NextRequest) {
       { error: "Failed to create provider" },
       { status: 500 }
     );
+  }
+}
+
+export async function PATCH(req: NextRequest) {
+  try {
+    const body = await req.json();
+    const { id, ...updates } = body;
+
+    if (!id) {
+      return NextResponse.json({ error: "Provider ID is required" }, { status: 400 });
+    }
+
+    const provider = await updateProvider(id, updates);
+    if (!provider) {
+      return NextResponse.json({ error: "Provider not found" }, { status: 404 });
+    }
+
+    return NextResponse.json({ provider });
+  } catch {
+    return NextResponse.json({ error: "Failed to update provider" }, { status: 500 });
   }
 }
 

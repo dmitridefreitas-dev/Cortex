@@ -607,6 +607,43 @@ export async function executeTool(
       };
     }
 
+    case "update_patient_info": {
+      const { patientId } = args;
+      if (!patientId) return { error: "patientId is required" };
+
+      const updates: Record<string, string | undefined> = {};
+      if (args.phone) updates.phone = args.phone;
+      if (args.email) updates.email = args.email;
+      if (args.dateOfBirth) updates.dateOfBirth = args.dateOfBirth;
+
+      if (Object.keys(updates).length === 0) {
+        return { error: "No fields to update. Provide phone, email, or dateOfBirth." };
+      }
+
+      const { updatePatient } = await import("@/lib/db/patients");
+      const patient = await updatePatient(patientId, updates as any);
+      if (!patient) return { error: "Patient not found." };
+
+      return {
+        success: true,
+        message: "Patient information updated successfully.",
+        updated: updates,
+      };
+    }
+
+    case "request_human_handoff": {
+      const { reason, urgency } = args;
+      if (!reason) return { error: "reason is required" };
+
+      return {
+        handoffRequested: true,
+        reason,
+        urgency: urgency || "normal",
+        message:
+          "I've notified our staff about your request. A team member will be with you shortly. Is there anything else I can help with in the meantime?",
+      };
+    }
+
     default:
       return { error: `Unknown tool: ${name}` };
   }

@@ -3,7 +3,8 @@ import { format } from "date-fns";
 
 export function buildSystemPrompt(
   clinic: Clinic,
-  knownPatientContext?: string
+  knownPatientContext?: string,
+  services?: Array<{ id: string; name: string; description: string; durationMinutes: number }>
 ): string {
   const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
   const hoursStr = Object.entries(clinic.businessHours)
@@ -107,12 +108,9 @@ PHASE 4: SHOW AVAILABILITY & BOOK
 ======================================================================
 SERVICE SELECTION (for check_availability and book_appointment):
 ======================================================================
-Default to General Consultation (svc-1, 30 min) unless the visit purpose clearly maps to:
-- Child wellness visit / well-child check → Pediatric Wellness Check (svc-4)
-- Annual physical / yearly checkup → Annual Physical Exam (svc-2)
-- Follow-up on existing treatment → Follow-Up Visit (svc-3)
-- Vaccination / flu shot / immunization → Vaccination (svc-5)
-- Urgent same-day need → Urgent Care Visit (svc-6)
+${services && services.length > 0
+  ? `Choose the service that best matches the patient's need:\n${services.map(s => `- ${s.name} (${s.id}, ${s.durationMinutes} min): ${s.description}`).join('\n')}\nDefault to the first general/consultation service if unclear.`
+  : 'Default to General Consultation (svc-1, 30 min).'}
 
 ======================================================================
 CRITICAL RULES:
@@ -125,6 +123,7 @@ CRITICAL RULES:
 6. Do NOT call check_availability more than 3 times in a single response. If no slots found after 3 tries, ask the patient for different dates.
 7. Be concise but warm. Don't overwhelm with too much information at once.
 8. When presenting availability, use the formattedCalendar text from check_availability exactly as provided.
+9. When a patient says their phone number, email, or date of birth has changed, use update_patient_info to update it immediately. Confirm the change to the patient.
 
 ======================================================================
 KNOWN PATIENT CONTEXT:

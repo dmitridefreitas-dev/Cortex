@@ -13,8 +13,9 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Trash2, Mail, Phone } from "lucide-react";
-import type { Provider } from "@/types";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Plus, Trash2, Mail, Phone, Briefcase } from "lucide-react";
+import type { Provider, Service } from "@/types";
 
 const EMPTY_FORM = {
   name: "",
@@ -33,6 +34,11 @@ export default function ProvidersPage() {
   const [editProvider, setEditProvider] = useState<Provider | null>(null);
   const [editForm, setEditForm] = useState(EMPTY_FORM);
   const [editOpen, setEditOpen] = useState(false);
+  const [manageServicesProvider, setManageServicesProvider] = useState<Provider | null>(null);
+  const [manageServicesOpen, setManageServicesOpen] = useState(false);
+  const [allServices, setAllServices] = useState<Service[]>([]);
+  const [assignedServiceIds, setAssignedServiceIds] = useState<Set<string>>(new Set());
+  const [manageServicesLoading, setManageServicesLoading] = useState(false);
 
   async function fetchProviders() {
     try {
@@ -123,6 +129,56 @@ export default function ProvidersPage() {
       console.error("Failed to update provider", err);
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  async function openManageServices(provider: Provider) {
+    setManageServicesProvider(provider);
+    setManageServicesOpen(true);
+    setManageServicesLoading(true);
+    setAllServices([]);
+    setAssignedServiceIds(new Set());
+    try {
+      const [servicesRes, assignedRes] = await Promise.all([
+        fetch("/api/services"),
+        fetch(`/api/provider-services?providerId=${provider.id}`),
+      ]);
+      const servicesData = await servicesRes.json();
+      const assignedData = await assignedRes.json();
+      setAllServices(servicesData.services ?? []);
+      const ids = new Set<string>((assignedData.services ?? []).map((s: Service) => s.id));
+      setAssignedServiceIds(ids);
+    } catch (err) {
+      console.error("Failed to fetch services", err);
+    } finally {
+      setManageServicesLoading(false);
+    }
+  }
+
+  async function handleServiceToggle(serviceId: string, checked: boolean) {
+    if (!manageServicesProvider) return;
+    const providerId = manageServicesProvider.id;
+    try {
+      if (checked) {
+        const res = await fetch("/api/provider-services", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ providerId, serviceId }),
+        });
+        if (res.ok) setAssignedServiceIds((prev) => new Set([...prev, serviceId]));
+      } else {
+        const res = await fetch(
+          `/api/provider-services?providerId=${providerId}&serviceId=${serviceId}`,
+          { method: "DELETE" }
+        );
+        if (res.ok) setAssignedServiceIds((prev) => {
+          const next = new Set(prev);
+          next.delete(serviceId);
+          return next;
+        });
+      }
+    } catch (err) {
+      console.error("Failed to update service assignment", err);
     }
   }
 
@@ -244,7 +300,15 @@ export default function ProvidersPage() {
                     {provider.bio}
                   </p>
                 )}
-                <div className="flex gap-2 pt-2">
+                <div className="flex flex-wrap gap-2 pt-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => openManageServices(provider)}
+                  >
+                    <Briefcase className="mr-1.5 h-3.5 w-3.5" />
+                    Manage Services
+                  </Button>
                   <Button
                     variant="outline"
                     size="sm"
@@ -343,6 +407,44 @@ export default function ProvidersPage() {
               </Button>
             </div>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Manage Services Dialog */}
+      <Dialog open={manageServicesOpen} onOpenChange={setManageServicesOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              Manage Services{manageServicesProvider ? ` – ${manageServicesProvider.name}` : ""}
+            </DialogTitle>
+          </DialogHeader>
+          {manageServicesLoading ? (
+            <p className="text-muted-foreground py-4">Loading services...</p>
+          ) : allServices.length === 0 ? (
+            <p className="text-muted-foreground py-4">No services available.</p>
+          ) : (
+            <div className="space-y-3 py-2 max-h-[60vh] overflow-y-auto">
+              {allServices.map((service) => (
+                <label
+                  key={service.id}
+                  className="flex items-center gap-3 rounded-lg border p-3 cursor-pointer hover:bg-muted/50 transition-colors"
+                >
+                  <Checkbox
+                    checked={assignedServiceIds.has(service.id)}
+                    onCheckedChange={(checked) =>
+                      handleServiceToggle(service.id, checked === true)
+                    }
+                  />
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium">{service.name}</p>
+                    <p className="text-sm text-muted-foreground truncate">
+                      {service.description}
+                    </p>
+                  </div>
+                </label>
+              ))}
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>

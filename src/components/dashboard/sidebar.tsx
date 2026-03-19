@@ -3,169 +3,170 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  Calendar,
-  Users,
-  Stethoscope,
-  Clock,
-  UserCircle,
-  Settings,
   LayoutDashboard,
-  Menu,
-  MessageSquare,
+  CalendarDays,
+  UserCheck,
+  Users,
   FileText,
+  MessageSquare,
+  Radio,
+  AlertTriangle,
+  Stethoscope,
+  Briefcase,
+  CalendarClock,
+  Settings,
   HelpCircle,
+  Menu,
   ExternalLink,
+  Bot,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
-import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
-import { Badge } from "@/components/ui/badge";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 
-const navItems = [
-  { href: "/dashboard", label: "Overview", icon: LayoutDashboard },
-  { href: "/dashboard/appointments", label: "Appointments", icon: Calendar },
-  { href: "/dashboard/patients", label: "Patients", icon: UserCircle },
-  { href: "/dashboard/providers", label: "Providers", icon: Stethoscope },
-  { href: "/dashboard/services", label: "Services", icon: Users },
-  { href: "/dashboard/schedules", label: "Schedules", icon: Clock },
-  { href: "/dashboard/conversations", label: "Conversations", icon: MessageSquare },
-  { href: "/dashboard/forms", label: "Intake Forms", icon: FileText },
-  { href: "/dashboard/settings", label: "Settings", icon: Settings },
-  { href: "/dashboard/settings/faq", label: "FAQ", icon: HelpCircle },
+
+const navSections = [
+  {
+    title: "OPERATIONS",
+    items: [
+      { href: "/dashboard", label: "Overview", icon: LayoutDashboard },
+      { href: "/dashboard/appointments", label: "Appointments", icon: CalendarDays },
+      { href: "/dashboard/check-in", label: "Check-In", icon: UserCheck },
+    ],
+  },
+  {
+    title: "PATIENTS",
+    items: [
+      { href: "/dashboard/patients", label: "Patient Records", icon: Users },
+      { href: "/dashboard/forms", label: "Intake Forms", icon: FileText },
+      { href: "/dashboard/conversations", label: "Conversations", icon: MessageSquare },
+      { href: "/dashboard/conversations/live", label: "Live Monitor", icon: Radio },
+      { href: "/dashboard/conversations/handoffs", label: "Handoff Queue", icon: AlertTriangle },
+    ],
+  },
+  {
+    title: "CLINIC",
+    items: [
+      { href: "/dashboard/providers", label: "Providers", icon: Stethoscope },
+      { href: "/dashboard/services", label: "Services", icon: Briefcase },
+      { href: "/dashboard/schedules", label: "Schedules", icon: CalendarClock },
+    ],
+  },
+  {
+    title: "SETTINGS",
+    items: [
+      { href: "/dashboard/settings", label: "Clinic Settings", icon: Settings },
+      { href: "/dashboard/settings/faq", label: "FAQ", icon: HelpCircle },
+    ],
+  },
 ];
 
-export function Sidebar() {
+function NavContent({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
-  const [open, setOpen] = useState(false);
 
-  const nav = (
-    <nav className="flex flex-col gap-1.5">
-      {navItems.map((item) => {
-        const isActive =
-          pathname === item.href ||
-          (item.href !== "/dashboard" && pathname.startsWith(item.href));
-        return (
-          <Link
-            key={item.href}
-            href={item.href}
-            onClick={() => setOpen(false)}
-            className={cn(
-              "flex min-h-[46px] items-center gap-3 rounded-2xl px-4 text-sm font-medium transition-all",
-              isActive
-                ? "bg-gradient-to-r from-blue-600 to-blue-500 text-white shadow-lg shadow-blue-600/15"
-                : "text-slate-600 hover:bg-blue-50/80 hover:text-slate-950"
-            )}
-          >
-            <item.icon
-              className={cn(
-                "h-5 w-5",
-                isActive ? "text-white" : "text-slate-400"
-              )}
-            />
-            {item.label}
-          </Link>
-        );
-      })}
+  return (
+    <nav className="flex flex-col gap-6">
+      {navSections.map((section) => (
+        <div key={section.title}>
+          <p className="mb-2 px-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+            {section.title}
+          </p>
+          <div className="flex flex-col gap-0.5">
+            {section.items.map((item) => {
+              const isActive =
+                pathname === item.href ||
+                (item.href !== "/dashboard" && pathname.startsWith(item.href));
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={onNavigate}
+                  className={cn(
+                    "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors",
+                    isActive
+                      ? "bg-blue-50 font-medium text-blue-700"
+                      : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+                  )}
+                >
+                  <item.icon className="h-4 w-4 shrink-0" />
+                  {item.label}
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+      ))}
     </nav>
   );
+}
+
+function BrandLogo() {
+  return (
+    <div className="flex items-center gap-3">
+      <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-600 text-white">
+        <Bot className="h-5 w-5" />
+      </div>
+      <span className="text-lg font-semibold text-foreground">Cortex</span>
+    </div>
+  );
+}
+
+export function Sidebar() {
+  const [open, setOpen] = useState(false);
 
   return (
     <>
-      {/* Mobile Drawer */}
+      {/* Mobile: Hamburger + Sheet */}
       <Sheet open={open} onOpenChange={setOpen}>
-        <SheetTrigger className="fixed left-4 top-4 z-50 rounded-2xl border border-white/70 bg-white/90 p-3 shadow-lg shadow-blue-500/10 backdrop-blur transition-colors hover:bg-blue-50 lg:hidden">
-          <Menu className="h-5 w-5 text-slate-700" />
-          <span className="sr-only">Toggle menu</span>
+        <SheetTrigger className="fixed left-4 top-4 z-50 lg:hidden inline-flex items-center justify-center rounded-md h-10 w-10 hover:bg-accent hover:text-accent-foreground" aria-label="Toggle menu">
+          <Menu className="h-5 w-5" />
         </SheetTrigger>
-        <SheetContent side="left" className="w-[300px] border-r border-blue-100 bg-white/95 p-0 backdrop-blur">
-          <SheetTitle className="sr-only">Navigation Menu</SheetTitle>
+        <SheetContent side="left" className="w-64 p-0">
           <div className="flex h-full flex-col">
-            <div className="border-b border-blue-100 px-6 pb-5 pt-8">
-              <div className="flex items-center gap-3">
-                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-blue-600 text-white shadow-lg shadow-blue-500/20">
-                  <Stethoscope className="h-5 w-5" />
-                </div>
-                <div>
-                  <p className="text-lg font-semibold text-slate-950">Cortex</p>
-                  <p className="text-sm text-muted-foreground">
-                    Clinic operations
-                  </p>
-                </div>
-              </div>
+            <div className="border-b px-6 py-5">
+              <BrandLogo />
             </div>
-            <div className="flex-1 px-4 py-5">
-              <div className="mb-4 flex items-center justify-between px-2">
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
-                  Workspace
-                </p>
-                <Badge className="rounded-full bg-blue-50 px-2.5 py-1 text-blue-700 ring-1 ring-blue-100">
-                  Live
-                </Badge>
-              </div>
-              {nav}
+            <div className="flex-1 overflow-y-auto px-4 py-4">
+              <NavContent onNavigate={() => setOpen(false)} />
             </div>
-            <div className="border-t border-blue-100 p-4">
+            <div className="border-t p-4">
               <Link
                 href="/chat"
                 target="_blank"
-                className="flex items-center gap-3 rounded-2xl border border-blue-100 bg-blue-50/70 px-4 py-3 text-sm font-medium text-blue-700 transition-colors hover:bg-blue-100"
+                rel="noopener noreferrer"
+                onClick={() => setOpen(false)}
+                className="flex items-center gap-3 rounded-lg bg-muted/50 px-3 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-muted"
               >
-                <ExternalLink className="h-4 w-4" />
+                <Bot className="h-4 w-4" />
                 View Patient Chat
+                <ExternalLink className="h-3.5 w-3 shrink-0 opacity-60" />
               </Link>
             </div>
           </div>
         </SheetContent>
       </Sheet>
 
-      {/* Desktop Sidebar */}
-      <aside className="hidden w-[300px] flex-col p-4 lg:flex">
-        <div className="sticky top-4 flex h-[calc(100vh-2rem)] flex-col rounded-[30px] border border-white/70 bg-white/85 p-4 shadow-[0_30px_80px_-45px_rgba(37,99,235,0.35)] backdrop-blur">
-          <div className="flex items-center gap-3 rounded-[24px] border border-blue-100 bg-gradient-to-br from-white to-blue-50/80 px-4 py-4">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-600 text-white shadow-lg shadow-blue-500/20">
-              <Stethoscope className="h-6 w-6" />
-            </div>
-            <div className="min-w-0">
-              <p className="truncate text-lg font-semibold text-slate-950">
-                Cortex
-              </p>
-              <p className="text-sm text-muted-foreground">
-                AI clinic operations
-              </p>
-            </div>
+      {/* Desktop: Fixed sidebar */}
+      <aside className="hidden w-64 shrink-0 flex-col border-r bg-background lg:flex">
+        <div className="flex h-full flex-col">
+          <div className="border-b px-6 py-5">
+            <BrandLogo />
           </div>
-
-          <div className="mt-6 flex items-center justify-between px-2">
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
-              Workspace
-            </p>
-            <Badge className="rounded-full bg-blue-50 px-2.5 py-1 text-blue-700 ring-1 ring-blue-100">
-              Live
-            </Badge>
+          <div className="flex-1 overflow-y-auto px-4 py-4">
+            <NavContent />
           </div>
-
-          <div className="mt-4 flex-1 overflow-y-auto rounded-[24px] border border-blue-100/70 bg-white/70 p-2">
-            {nav}
+          <div className="border-t p-4">
+            <Link
+              href="/chat"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-3 rounded-lg bg-muted/50 px-3 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-muted"
+            >
+              <Bot className="h-4 w-4" />
+              View Patient Chat
+              <ExternalLink className="h-3.5 w-3 shrink-0 opacity-60" />
+            </Link>
           </div>
-
-          <div className="mt-4 rounded-[24px] border border-blue-100 bg-gradient-to-br from-blue-50 to-white p-4">
-            <p className="text-sm font-medium text-slate-950">
-              Patient-facing flow
-            </p>
-            <p className="mt-1 text-sm leading-6 text-slate-600">
-              Open the live chat view to see the white-and-blue patient
-              experience from the other side.
-            </p>
-          </div>
-
-          <Link
-            href="/chat"
-            target="_blank"
-            className="mt-4 flex items-center gap-2 rounded-2xl border border-blue-100 bg-slate-950 px-4 py-3 text-sm font-medium text-white transition-colors hover:bg-slate-900"
-          >
-            <ExternalLink className="h-4 w-4" />
-            View Patient Chat
-          </Link>
         </div>
       </aside>
     </>

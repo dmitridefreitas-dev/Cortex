@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Plus, Trash2 } from "lucide-react";
+import { Pencil, Plus, Trash2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
@@ -40,6 +40,9 @@ export default function ServicesPage() {
   const [form, setForm] = useState(emptyForm);
   const [submitting, setSubmitting] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [editingService, setEditingService] = useState<Service | null>(null);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editForm, setEditForm] = useState(emptyForm);
 
   async function fetchServices() {
     try {
@@ -102,6 +105,52 @@ export default function ServicesPage() {
       console.error("Error deleting service:", err);
     } finally {
       setDeletingId(null);
+    }
+  }
+
+  function openEditDialog(service: Service) {
+    setEditingService(service);
+    setEditForm({
+      name: service.name,
+      description: service.description,
+      durationMinutes: String(service.durationMinutes),
+      price: String(service.price),
+      category: service.category ?? "",
+    });
+    setEditDialogOpen(true);
+  }
+
+  function handleEditFormChange(
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+  ) {
+    setEditForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+  }
+
+  async function handleEditSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!editingService) return;
+    setSubmitting(true);
+    try {
+      const res = await fetch("/api/services", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: editingService.id,
+          name: editForm.name,
+          description: editForm.description,
+          durationMinutes: Number(editForm.durationMinutes),
+          price: Number(editForm.price),
+          category: editForm.category || undefined,
+        }),
+      });
+      if (!res.ok) throw new Error("Failed to update service");
+      setEditDialogOpen(false);
+      setEditingService(null);
+      await fetchServices();
+    } catch (err) {
+      console.error("Error updating service:", err);
+    } finally {
+      setSubmitting(false);
     }
   }
 
@@ -254,6 +303,14 @@ export default function ServicesPage() {
                       <Button
                         variant="ghost"
                         size="icon"
+                        onClick={() => openEditDialog(service)}
+                        aria-label={`Edit ${service.name}`}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
                         disabled={deletingId === service.id}
                         onClick={() => handleDelete(service.id)}
                         aria-label={`Delete ${service.name}`}
@@ -268,6 +325,90 @@ export default function ServicesPage() {
           )}
         </CardContent>
       </Card>
+
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit Service</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleEditSubmit} className="space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="edit-name">Name</Label>
+              <Input
+                id="edit-name"
+                name="name"
+                placeholder="e.g. General Consultation"
+                value={editForm.name}
+                onChange={handleEditFormChange}
+                required
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="edit-description">Description</Label>
+              <Textarea
+                id="edit-description"
+                name="description"
+                placeholder="Brief description of the service"
+                value={editForm.description}
+                onChange={handleEditFormChange}
+                required
+                rows={3}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="edit-durationMinutes">Duration (minutes)</Label>
+                <Input
+                  id="edit-durationMinutes"
+                  name="durationMinutes"
+                  type="number"
+                  min={1}
+                  placeholder="30"
+                  value={editForm.durationMinutes}
+                  onChange={handleEditFormChange}
+                  required
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="edit-price">Price ($)</Label>
+                <Input
+                  id="edit-price"
+                  name="price"
+                  type="number"
+                  min={0}
+                  step={0.01}
+                  placeholder="0.00"
+                  value={editForm.price}
+                  onChange={handleEditFormChange}
+                  required
+                />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="edit-category">Category (optional)</Label>
+              <Input
+                id="edit-category"
+                name="category"
+                placeholder="e.g. Primary Care"
+                value={editForm.category}
+                onChange={handleEditFormChange}
+              />
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setEditDialogOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={submitting}>
+                {submitting ? "Saving..." : "Save Changes"}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

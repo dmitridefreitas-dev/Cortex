@@ -11,7 +11,7 @@ import { getDefaultClinic } from "@/lib/db/clinics";
 import { getPatient } from "@/lib/db/patients";
 import { getAppointments } from "@/lib/db/appointments";
 import { getProvider } from "@/lib/db/providers";
-import { getService } from "@/lib/db/services";
+import { getService, getServices } from "@/lib/db/services";
 import type { ChatMessage } from "@/types";
 
 const genai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
@@ -21,10 +21,12 @@ export async function chat(
   knownPatientId?: string
 ): Promise<{ reply: string; toolCalls: Array<{ name: string; args: Record<string, string>; result: unknown }> }> {
   const clinic = await getDefaultClinic();
+  const services = await getServices(clinic.id);
+  const serviceData = services.map(s => ({ id: s.id, name: s.name, description: s.description, durationMinutes: s.durationMinutes }));
   const patientContext = knownPatientId
     ? await buildKnownPatientContext(knownPatientId)
     : undefined;
-  const systemPrompt = buildSystemPrompt(clinic, patientContext);
+  const systemPrompt = buildSystemPrompt(clinic, patientContext, serviceData);
 
   const model = process.env.GEMINI_MODEL || "gemini-2.5-flash";
 
@@ -43,14 +45,28 @@ export async function chat(
   while (maxIterations > 0) {
     maxIterations--;
 
-    const response = await genai.models.generateContent({
-      model,
-      contents: currentContents,
-      config: {
-        systemInstruction: systemPrompt,
-        tools: [{ functionDeclarations: toolDeclarations }],
-      },
-    });
+    let response;
+    try {
+      response = await genai.models.generateContent({
+        model,
+        contents: currentContents,
+        config: {
+          systemInstruction: systemPrompt,
+          tools: [{ functionDeclarations: toolDeclarations }],
+        },
+      });
+    } catch (err) {
+      console.error("Gemini API error, retrying once:", err);
+      await new Promise(r => setTimeout(r, 1000));
+      response = await genai.models.generateContent({
+        model,
+        contents: currentContents,
+        config: {
+          systemInstruction: systemPrompt,
+          tools: [{ functionDeclarations: toolDeclarations }],
+        },
+      });
+    }
 
     const candidate = response.candidates?.[0];
     if (!candidate) {

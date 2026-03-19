@@ -9,6 +9,7 @@ function rowToConversation(row: Record<string, unknown>): Conversation {
     patientId: row.patient_id as string | undefined,
     messages: row.messages as ChatMessage[],
     summary: row.summary as string | undefined,
+    status: (row.status as string | undefined) ?? "active",
     createdAt: row.created_at as string,
     updatedAt: row.updated_at as string,
   };
@@ -97,4 +98,18 @@ export async function setConversationPatientId(
     .select()
     .single();
   return data ? rowToConversation(data) : undefined;
+}
+
+export async function updateConversationStatus(id: string, status: string): Promise<void> {
+  await supabase.from("conversations").update({ status }).eq("id", id);
+}
+
+export async function getActiveConversations(minutesAgo: number = 30): Promise<Conversation[]> {
+  const cutoff = new Date(Date.now() - minutesAgo * 60 * 1000).toISOString();
+  const { data } = await supabase
+    .from("conversations")
+    .select("*")
+    .gte("updated_at", cutoff)
+    .order("updated_at", { ascending: false });
+  return (data || []).map(rowToConversation);
 }

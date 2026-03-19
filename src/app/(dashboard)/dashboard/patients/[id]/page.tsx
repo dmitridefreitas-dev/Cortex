@@ -5,7 +5,15 @@ import { useParams, useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { ArrowLeft, Edit, Calendar, Clock, Stethoscope, AlertTriangle } from "lucide-react";
 import { format } from "date-fns";
 import type { Patient, Appointment } from "@/types";
@@ -19,31 +27,69 @@ export default function PatientProfilePage() {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    async function fetchData() {
-      try {
-        // Fetch Patient Details
-        const patientRes = await fetch(`/api/patients`);
-        const patientData = await patientRes.json();
-        const foundPatient = patientData.patients?.find((p: Patient) => p.id === id);
+  const [editOpen, setEditOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [editForm, setEditForm] = useState({
+    firstName: "",
+    lastName: "",
+    email: "",
+    phone: "",
+    dateOfBirth: "",
+  });
+
+  async function fetchData() {
+    try {
+      const patientRes = await fetch(`/api/patients`);
+      const patientData = await patientRes.json();
+      const foundPatient = patientData.patients?.find((p: Patient) => p.id === id);
+      
+      if (foundPatient) {
+        setPatient(foundPatient);
         
-        if (foundPatient) {
-          setPatient(foundPatient);
-          
-          // Fetch Appointments for this Patient
-          const aptsRes = await fetch(`/api/appointments`);
-          const aptsData = await aptsRes.json();
-          const patientApts = aptsData.appointments?.filter((a: Appointment) => a.patientId === id) || [];
-          setAppointments(patientApts);
-        }
-      } catch (err) {
-        console.error("Failed to load patient data:", err);
-      } finally {
-        setLoading(false);
+        const aptsRes = await fetch(`/api/appointments`);
+        const aptsData = await aptsRes.json();
+        const patientApts = aptsData.appointments?.filter((a: Appointment) => a.patientId === id) || [];
+        setAppointments(patientApts);
       }
+    } catch (err) {
+      console.error("Failed to load patient data:", err);
+    } finally {
+      setLoading(false);
     }
+  }
+
+  useEffect(() => {
     fetchData();
   }, [id]);
+
+  function openEditDialog() {
+    if (!patient) return;
+    setEditForm({
+      firstName: patient.firstName,
+      lastName: patient.lastName,
+      email: patient.email,
+      phone: patient.phone,
+      dateOfBirth: patient.dateOfBirth || "",
+    });
+    setEditOpen(true);
+  }
+
+  async function handleSaveEdit() {
+    setSaving(true);
+    try {
+      const res = await fetch("/api/patients", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, ...editForm }),
+      });
+      if (res.ok) {
+        setEditOpen(false);
+        await fetchData();
+      }
+    } finally {
+      setSaving(false);
+    }
+  }
 
   if (loading) return <div className="p-8">Loading patient profile...</div>;
   if (!patient) return <div className="p-8">Patient not found.</div>;
@@ -63,13 +109,12 @@ export default function PatientProfilePage() {
             <p className="text-sm text-muted-foreground">ID: {patient.id}</p>
           </div>
         </div>
-        <Button variant="outline">
+        <Button variant="outline" onClick={openEditDialog}>
           <Edit className="mr-2 h-4 w-4" /> Edit Profile
         </Button>
       </div>
 
       <div className="grid gap-6 md:grid-cols-3">
-        {/* Left Column: Demographics & Medical History */}
         <div className="space-y-6 md:col-span-1">
           <Card>
             <CardHeader className="pb-3">
@@ -143,7 +188,6 @@ export default function PatientProfilePage() {
           </Card>
         </div>
 
-        {/* Right Column: Appointments & Activity */}
         <div className="space-y-6 md:col-span-2">
           <Card className="flex-1">
             <CardHeader>
@@ -166,7 +210,9 @@ export default function PatientProfilePage() {
                           <p className="font-medium">{format(new Date(apt.startTime), "EEEE, MMM d, yyyy")}</p>
                           <p className="text-sm text-muted-foreground flex items-center gap-1">
                             <Clock className="w-3 h-3" /> {format(new Date(apt.startTime), "h:mm a")} 
-                            <span className="mx-1">•</span> <Stethoscope className="w-3 h-3" /> Provider: {apt.providerId}
+                            <span className="mx-1">•</span>
+                            <Stethoscope className="w-3 h-3" /> {apt.providerName || "Unknown provider"}
+                            {apt.serviceName && <><span className="mx-1">•</span>{apt.serviceName}</>}
                           </p>
                         </div>
                         <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
@@ -192,6 +238,8 @@ export default function PatientProfilePage() {
                       <div key={apt.id} className="flex justify-between items-center py-2 border-b last:border-0 text-sm">
                         <div className="text-slate-600">
                           {format(new Date(apt.startTime), "MMM d, yyyy")}
+                          {apt.providerName && <span className="ml-2 text-muted-foreground">— {apt.providerName}</span>}
+                          {apt.serviceName && <span className="ml-1 text-muted-foreground">({apt.serviceName})</span>}
                         </div>
                         <Badge variant="secondary" className="opacity-70">
                           {apt.status}
@@ -205,6 +253,63 @@ export default function PatientProfilePage() {
           </Card>
         </div>
       </div>
+
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Patient Profile</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-firstName">First Name</Label>
+                <Input
+                  id="edit-firstName"
+                  value={editForm.firstName}
+                  onChange={(e) => setEditForm({ ...editForm, firstName: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-lastName">Last Name</Label>
+                <Input
+                  id="edit-lastName"
+                  value={editForm.lastName}
+                  onChange={(e) => setEditForm({ ...editForm, lastName: e.target.value })}
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-email">Email</Label>
+              <Input
+                id="edit-email"
+                type="email"
+                value={editForm.email}
+                onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-phone">Phone</Label>
+              <Input
+                id="edit-phone"
+                value={editForm.phone}
+                onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-dateOfBirth">Date of Birth</Label>
+              <Input
+                id="edit-dateOfBirth"
+                type="date"
+                value={editForm.dateOfBirth}
+                onChange={(e) => setEditForm({ ...editForm, dateOfBirth: e.target.value })}
+              />
+            </div>
+            <Button onClick={handleSaveEdit} disabled={saving || !editForm.firstName || !editForm.lastName || !editForm.email}>
+              {saving ? "Saving..." : "Save Changes"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

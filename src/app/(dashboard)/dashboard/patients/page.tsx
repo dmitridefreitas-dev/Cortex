@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Table,
   TableBody,
@@ -13,15 +15,32 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Search, Trash2, UserCircle } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Search, Trash2, UserCircle, Plus } from "lucide-react";
 import { format } from "date-fns";
 import type { Patient } from "@/types";
 
 export default function PatientsPage() {
+  const router = useRouter();
   const [patients, setPatients] = useState<Patient[]>([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [form, setForm] = useState({
+    firstName: "",
+    lastName: "",
+    email: "",
+    phone: "",
+    dateOfBirth: "",
+  });
 
   useEffect(() => {
     fetch("/api/patients")
@@ -43,6 +62,27 @@ export default function PatientsPage() {
     }
   }
 
+  async function handleCreate() {
+    setCreating(true);
+    try {
+      const res = await fetch("/api/patients", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.patient) {
+          setPatients((prev) => [...prev, data.patient]);
+        }
+        setDialogOpen(false);
+        setForm({ firstName: "", lastName: "", email: "", phone: "", dateOfBirth: "" });
+      }
+    } finally {
+      setCreating(false);
+    }
+  }
+
   const filtered = patients.filter((p) => {
     const q = search.toLowerCase();
     return (
@@ -61,6 +101,11 @@ export default function PatientsPage() {
         <Badge variant="secondary" className="ml-2">
           {patients.length} total
         </Badge>
+        <div className="ml-auto">
+          <Button onClick={() => setDialogOpen(true)}>
+            <Plus className="mr-2 h-4 w-4" /> New Patient
+          </Button>
+        </div>
       </div>
 
       <Card>
@@ -102,7 +147,11 @@ export default function PatientsPage() {
               </TableHeader>
               <TableBody>
                 {filtered.map((p) => (
-                  <TableRow key={p.id}>
+                  <TableRow
+                    key={p.id}
+                    className="cursor-pointer"
+                    onClick={() => router.push(`/dashboard/patients/${p.id}`)}
+                  >
                     <TableCell className="font-medium">
                       {p.firstName} {p.lastName}
                     </TableCell>
@@ -121,7 +170,10 @@ export default function PatientsPage() {
                         variant="ghost"
                         size="icon"
                         className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                        onClick={() => handleDelete(p)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDelete(p);
+                        }}
                         disabled={deletingId === p.id}
                       >
                         <Trash2 className="h-4 w-4" />
@@ -134,6 +186,63 @@ export default function PatientsPage() {
           )}
         </CardContent>
       </Card>
+
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>New Patient</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="firstName">First Name</Label>
+                <Input
+                  id="firstName"
+                  value={form.firstName}
+                  onChange={(e) => setForm({ ...form, firstName: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="lastName">Last Name</Label>
+                <Input
+                  id="lastName"
+                  value={form.lastName}
+                  onChange={(e) => setForm({ ...form, lastName: e.target.value })}
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                value={form.email}
+                onChange={(e) => setForm({ ...form, email: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="phone">Phone</Label>
+              <Input
+                id="phone"
+                value={form.phone}
+                onChange={(e) => setForm({ ...form, phone: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="dateOfBirth">Date of Birth</Label>
+              <Input
+                id="dateOfBirth"
+                type="date"
+                value={form.dateOfBirth}
+                onChange={(e) => setForm({ ...form, dateOfBirth: e.target.value })}
+              />
+            </div>
+            <Button onClick={handleCreate} disabled={creating || !form.firstName || !form.lastName || !form.email}>
+              {creating ? "Creating..." : "Create Patient"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

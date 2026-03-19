@@ -1,5 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createFormResponse } from "@/lib/db/forms";
+import { createFormResponse, getFormResponses } from "@/lib/db/forms";
+
+export async function GET(req: NextRequest) {
+  const { searchParams } = new URL(req.url);
+  const formId = searchParams.get("formId");
+  if (!formId) {
+    return NextResponse.json({ error: "formId required" }, { status: 400 });
+  }
+  const responses = await getFormResponses(formId);
+  return NextResponse.json({ responses });
+}
 
 export async function POST(req: NextRequest) {
   try {

@@ -3,26 +3,30 @@
 import Link from "next/link";
 import { useEffect, useState, type ComponentType } from "react";
 import {
-  ArrowRight,
-  Calendar,
-  CalendarCheck2,
-  CircleHelp,
-  Clock3,
-  FileText,
-  Sparkles,
-  Stethoscope,
+  CalendarDays,
   Users,
+  UserPlus,
+  Stethoscope,
+  MessageSquare,
+  FileText,
+  ArrowRight,
+  Activity,
 } from "lucide-react";
+import { Bar, BarChart, XAxis, YAxis, Pie, PieChart, Cell } from "recharts";
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+  type ChartConfig,
+} from "@/components/ui/chart";
 import { Badge } from "@/components/ui/badge";
-import { buttonVariants } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { cn } from "@/lib/utils";
 
 interface DashboardStats {
   appointmentsToday: number;
@@ -33,95 +37,166 @@ interface DashboardStats {
   appointmentsTotal: number;
 }
 
-const quickActions = [
-  {
-    href: "/dashboard/appointments",
-    title: "Review today's schedule",
-    description: "Confirm high-priority visits, reschedules, and no-show risks.",
-    icon: CalendarCheck2,
-  },
-  {
-    href: "/dashboard/forms",
-    title: "Check intake forms",
-    description: "Spot incomplete submissions before patients arrive onsite.",
-    icon: FileText,
-  },
-  {
-    href: "/dashboard/settings/faq",
-    title: "Refine patient answers",
-    description: "Update FAQ guidance so Cortex answers more consistently.",
-    icon: CircleHelp,
-  },
+interface ActivityItem {
+  type: string;
+  description: string;
+  timestamp: string;
+  id: string;
+}
+
+interface WeeklyAppointment {
+  startTime: string;
+  bookedVia: string;
+}
+
+const weekChartConfig = {
+  value: { label: "Appointments", color: "var(--chart-1)" },
+} satisfies ChartConfig;
+
+const CHANNEL_COLORS = [
+  "var(--chart-1)",
+  "var(--chart-2)",
+  "var(--chart-3)",
+  "var(--chart-4)",
 ];
+
+const channelChartConfig = {
+  value: { label: "Bookings" },
+} satisfies ChartConfig;
 
 function StatCard({
   label,
   value,
-  helper,
   icon: Icon,
   accent,
   loading,
 }: {
   label: string;
   value: number | string;
-  helper: string;
   icon: ComponentType<{ className?: string }>;
   accent: string;
   loading: boolean;
 }) {
   return (
-    <Card className="rounded-[28px] border-blue-100 bg-white/90 py-5 shadow-[0_20px_60px_-45px_rgba(37,99,235,0.4)]">
-      <CardHeader className="flex flex-row items-start justify-between gap-4">
-        <div>
-          <CardDescription className="text-sm font-medium text-slate-500">
-            {label}
-          </CardDescription>
-          <CardTitle className="mt-3 text-3xl font-semibold text-slate-950">
-            {loading ? "..." : value}
-          </CardTitle>
-        </div>
-        <div className={cn("flex h-12 w-12 items-center justify-center rounded-2xl", accent)}>
+    <Card className="rounded-2xl border-blue-100 bg-white/90 shadow-sm">
+      <CardContent className="flex items-center gap-4 p-5">
+        <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${accent}`}>
           <Icon className="h-5 w-5" />
         </div>
-      </CardHeader>
-      <CardContent>
-        <p className="text-sm leading-6 text-slate-600">{helper}</p>
+        <div className="min-w-0">
+          <p className="text-sm text-muted-foreground truncate">{label}</p>
+          <p className="text-2xl font-semibold text-slate-950 mt-0.5">
+            {loading ? "..." : value}
+          </p>
+        </div>
       </CardContent>
     </Card>
   );
 }
 
+const ACTIVITY_ICONS: Record<string, ComponentType<{ className?: string }>> = {
+  appointment: CalendarDays,
+  conversation: MessageSquare,
+  intake: FileText,
+};
+
+const ACTIVITY_COLORS: Record<string, string> = {
+  appointment: "text-blue-600 bg-blue-50",
+  conversation: "text-violet-600 bg-violet-50",
+  intake: "text-emerald-600 bg-emerald-50",
+};
+
+function relativeTime(timestamp: string): string {
+  const diff = Date.now() - new Date(timestamp).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  return `${Math.floor(hours / 24)}d ago`;
+}
+
+const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+function getWeekRange() {
+  const now = new Date();
+  const day = now.getDay();
+  const start = new Date(now);
+  start.setDate(now.getDate() - day);
+  start.setHours(0, 0, 0, 0);
+  const end = new Date(start);
+  end.setDate(start.getDate() + 6);
+  end.setHours(23, 59, 59, 999);
+  return { start, end };
+}
+
 export default function DashboardOverview() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [activities, setActivities] = useState<ActivityItem[]>([]);
+  const [weeklyData, setWeeklyData] = useState<{ name: string; value: number }[]>([]);
+  const [channelData, setChannelData] = useState<{ name: string; value: number }[]>([]);
+  const [aiConvosToday, setAiConvosToday] = useState(0);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
 
-    async function loadStats() {
+    async function load() {
       try {
-        const response = await fetch("/api/dashboard/stats");
+        const [statsRes, activityRes, apptsRes] = await Promise.all([
+          fetch("/api/dashboard/stats"),
+          fetch("/api/dashboard/activity"),
+          fetch("/api/appointments"),
+        ]);
 
-        if (!response.ok) {
-          throw new Error("Failed to load dashboard stats");
+        const statsData = statsRes.ok ? ((await statsRes.json()) as DashboardStats) : null;
+        const activityData = activityRes.ok
+          ? ((await activityRes.json()) as { activities: ActivityItem[] })
+          : { activities: [] };
+        const apptsJson = apptsRes.ok ? await apptsRes.json() : { appointments: [] };
+        const apptsData = (apptsJson.appointments ?? []) as WeeklyAppointment[];
+
+        if (cancelled) return;
+
+        setStats(statsData);
+        setActivities(activityData.activities);
+
+        const todayConvos = activityData.activities.filter(
+          (a) => a.type === "conversation"
+        ).length;
+        setAiConvosToday(todayConvos);
+
+        const { start, end } = getWeekRange();
+        const weekAppts = apptsData.filter((a) => {
+          const d = new Date(a.startTime);
+          return d >= start && d <= end;
+        });
+
+        const byDay = DAY_NAMES.map((name, i) => ({
+          name,
+          value: weekAppts.filter((a) => new Date(a.startTime).getDay() === i).length,
+        }));
+        setWeeklyData(byDay);
+
+        const channels: Record<string, number> = {};
+        for (const a of weekAppts) {
+          const ch = a.bookedVia || "unknown";
+          channels[ch] = (channels[ch] || 0) + 1;
         }
-
-        const data = (await response.json()) as DashboardStats;
-
-        if (!cancelled) {
-          setStats(data);
-        }
-      } catch (error) {
-        console.error(error);
+        setChannelData(
+          Object.entries(channels).map(([name, value]) => ({
+            name: name === "chat" ? "AI Chat" : name === "manual" ? "Staff" : name === "online" ? "Online" : name,
+            value,
+          }))
+        );
+      } catch (err) {
+        console.error("Failed to load dashboard data:", err);
       } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
+        if (!cancelled) setLoading(false);
       }
     }
 
-    loadStats();
-
+    load();
     return () => {
       cancelled = true;
     };
@@ -129,184 +204,168 @@ export default function DashboardOverview() {
 
   return (
     <div className="space-y-6">
-      <section className="rounded-[32px] border border-white/70 bg-white/88 p-6 shadow-[0_30px_90px_-50px_rgba(37,99,235,0.45)] backdrop-blur sm:p-8">
-        <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-          <div className="max-w-3xl">
-            <Badge className="rounded-full bg-blue-50 px-3 py-1 text-blue-700 ring-1 ring-blue-100">
-              Operations overview
-            </Badge>
-            <h1 className="mt-4 text-3xl font-semibold text-slate-950 sm:text-4xl">
-              A quieter dashboard with clearer next actions.
-            </h1>
-            <p className="mt-3 max-w-2xl text-base leading-7 text-slate-600">
-              This overview now uses stronger shadcn-style card groupings,
-              cleaner blue accents, and more deliberate CTA placement so staff
-              can read the clinic state faster.
-            </p>
-          </div>
+      {/* Header */}
+      <div>
+        <Badge className="rounded-full bg-blue-50 px-3 py-1 text-blue-700 ring-1 ring-blue-100">
+          Operations overview
+        </Badge>
+        <h1 className="mt-3 text-3xl font-semibold text-slate-950">Dashboard</h1>
+        <p className="mt-1 text-base text-slate-600">
+          Today&apos;s clinic snapshot and recent activity.
+        </p>
+      </div>
 
-          <div className="grid gap-3 rounded-[28px] border border-blue-100 bg-gradient-to-br from-white to-blue-50/70 p-4 sm:grid-cols-2">
-            <div>
-              <p className="text-sm text-slate-500">Total appointment records</p>
-              <p className="mt-2 text-3xl font-semibold text-slate-950">
-                {loading ? "..." : stats?.appointmentsTotal ?? 0}
-              </p>
-            </div>
-            <div>
-              <p className="text-sm text-slate-500">New patients in 30 days</p>
-              <p className="mt-2 text-3xl font-semibold text-blue-700">
-                {loading ? "..." : stats?.newPatientsLast30 ?? 0}
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      {/* Stat Cards */}
+      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         <StatCard
-          label="Today's appointments"
+          label="Today's Appointments"
           value={stats?.appointmentsToday ?? 0}
-          helper="Confirmed or ready to check in."
-          icon={Calendar}
-          accent="bg-blue-50 text-blue-700 ring-1 ring-blue-100"
+          icon={CalendarDays}
+          accent="bg-blue-50 text-blue-700"
           loading={loading}
         />
         <StatCard
-          label="Total patients"
+          label="Total Patients"
           value={stats?.totalPatients ?? 0}
-          helper={
-            loading
-              ? "Tracking patient growth."
-              : `${stats?.newPatientsLast30 ?? 0} new in the last 30 days.`
-          }
           icon={Users}
-          accent="bg-sky-50 text-sky-700 ring-1 ring-sky-100"
+          accent="bg-sky-50 text-sky-700"
           loading={loading}
         />
         <StatCard
-          label="Providers"
+          label="New Patients (30d)"
+          value={stats?.newPatientsLast30 ?? 0}
+          icon={UserPlus}
+          accent="bg-emerald-50 text-emerald-700"
+          loading={loading}
+        />
+        <StatCard
+          label="Active Providers"
           value={stats?.totalProviders ?? 0}
-          helper="Active clinicians available for scheduling."
           icon={Stethoscope}
-          accent="bg-indigo-50 text-indigo-700 ring-1 ring-indigo-100"
+          accent="bg-indigo-50 text-indigo-700"
           loading={loading}
         />
         <StatCard
-          label="Services"
-          value={stats?.totalServices ?? 0}
-          helper="Configured visit types patients can request."
-          icon={Clock3}
-          accent="bg-cyan-50 text-cyan-700 ring-1 ring-cyan-100"
+          label="AI Convos Today"
+          value={aiConvosToday}
+          icon={MessageSquare}
+          accent="bg-violet-50 text-violet-700"
           loading={loading}
         />
       </section>
 
-      <section className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(320px,0.8fr)]">
-        <Card className="rounded-[32px] border-blue-100 bg-white/90 py-6 shadow-[0_24px_70px_-50px_rgba(37,99,235,0.45)]">
-          <CardHeader className="gap-4">
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <CardTitle className="text-2xl text-slate-950">
-                  Recommended next steps
-                </CardTitle>
-                <CardDescription className="mt-2 max-w-2xl leading-6 text-slate-600">
-                  Keep the interface action-oriented by surfacing the three
-                  flows staff typically need after opening the dashboard.
-                </CardDescription>
-              </div>
-              <div className="hidden h-14 w-14 items-center justify-center rounded-3xl bg-blue-50 text-blue-700 ring-1 ring-blue-100 sm:flex">
-                <Sparkles className="h-6 w-6" />
-              </div>
-            </div>
+      {/* Charts + Activity */}
+      <section className="grid gap-4 lg:grid-cols-[1fr_1fr_minmax(300px,1fr)]">
+        {/* Appointments This Week */}
+        <Card className="rounded-2xl border-blue-100 bg-white/90 shadow-sm">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-lg text-slate-950">
+              <Activity className="h-4 w-4 text-blue-600" />
+              Appointments This Week
+            </CardTitle>
           </CardHeader>
-          <CardContent className="grid gap-4 md:grid-cols-3">
-            {quickActions.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className="group rounded-[24px] border border-blue-100 bg-gradient-to-br from-white to-blue-50/60 p-5 transition-transform hover:-translate-y-0.5"
-              >
-                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-950 text-white shadow-lg shadow-slate-900/15">
-                  <item.icon className="h-5 w-5" />
-                </div>
-                <h2 className="mt-4 text-lg font-semibold text-slate-950">
-                  {item.title}
-                </h2>
-                <p className="mt-2 text-sm leading-6 text-slate-600">
-                  {item.description}
-                </p>
-                <div className="mt-5 flex items-center gap-2 text-sm font-medium text-blue-700">
-                  Open
-                  <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
-                </div>
-              </Link>
-            ))}
+          <CardContent>
+            {loading ? (
+              <p className="text-sm text-muted-foreground">Loading...</p>
+            ) : (
+              <ChartContainer config={weekChartConfig} className="h-48 w-full">
+                <BarChart data={weeklyData}>
+                  <XAxis dataKey="name" tickLine={false} axisLine={false} fontSize={12} />
+                  <YAxis allowDecimals={false} tickLine={false} axisLine={false} fontSize={12} width={30} />
+                  <ChartTooltip content={<ChartTooltipContent />} />
+                  <Bar dataKey="value" fill="var(--color-value)" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ChartContainer>
+            )}
           </CardContent>
         </Card>
 
-        <div className="grid gap-4">
-          <Card className="rounded-[32px] border-blue-100 bg-slate-950 py-6 text-white shadow-[0_24px_80px_-45px_rgba(15,23,42,0.8)]">
-            <CardHeader>
-              <CardTitle className="text-2xl text-white">
-                Front desk rhythm
-              </CardTitle>
-              <CardDescription className="mt-2 leading-6 text-blue-100/70">
-                Keep staff focused on the next operational checkpoint instead of
-                scanning a flat list of links.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="rounded-3xl border border-white/10 bg-white/8 p-4">
-                <p className="text-sm text-blue-100/70">Morning</p>
-                <p className="mt-2 text-base font-medium text-white">
-                  Review today&apos;s bookings and provider coverage.
-                </p>
-              </div>
-              <div className="rounded-3xl border border-white/10 bg-white/8 p-4">
-                <p className="text-sm text-blue-100/70">Midday</p>
-                <p className="mt-2 text-base font-medium text-white">
-                  Check incomplete intake forms and chat handoffs.
-                </p>
-              </div>
-              <div className="rounded-3xl border border-white/10 bg-white/8 p-4">
-                <p className="text-sm text-blue-100/70">End of day</p>
-                <p className="mt-2 text-base font-medium text-white">
-                  Update FAQs and open capacity for tomorrow.
-                </p>
-              </div>
-            </CardContent>
-          </Card>
+        {/* Bookings by Channel */}
+        <Card className="rounded-2xl border-blue-100 bg-white/90 shadow-sm">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-lg text-slate-950">
+              <Activity className="h-4 w-4 text-blue-600" />
+              Bookings by Channel
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {loading ? (
+              <p className="text-sm text-muted-foreground">Loading...</p>
+            ) : channelData.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No bookings this week.</p>
+            ) : (
+              <ChartContainer config={channelChartConfig} className="h-48 w-full">
+                <PieChart>
+                  <ChartTooltip content={<ChartTooltipContent />} />
+                  <Pie data={channelData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={70} label>
+                    {channelData.map((_, i) => (
+                      <Cell key={i} fill={CHANNEL_COLORS[i % CHANNEL_COLORS.length]} />
+                    ))}
+                  </Pie>
+                </PieChart>
+              </ChartContainer>
+            )}
+          </CardContent>
+        </Card>
 
-          <Card className="rounded-[32px] border-blue-100 bg-white/90 py-6 shadow-[0_20px_60px_-45px_rgba(37,99,235,0.4)]">
-            <CardHeader>
-              <CardTitle className="text-2xl text-slate-950">
-                Quick access
-              </CardTitle>
-              <CardDescription className="mt-2 leading-6 text-slate-600">
-                These links stay visible because they are the most likely second
-                click from the overview.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {[
-                { href: "/dashboard/patients", label: "Patient records" },
-                { href: "/dashboard/providers", label: "Provider directory" },
-                { href: "/dashboard/services", label: "Service catalog" },
-              ].map((item) => (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={cn(
-                    buttonVariants({ variant: "outline", size: "lg" }),
-                    "w-full justify-between rounded-2xl border-blue-100 bg-white px-4 text-slate-700 hover:bg-blue-50"
-                  )}
-                >
-                  {item.label}
-                  <ArrowRight className="h-4 w-4" />
-                </Link>
-              ))}
-            </CardContent>
-          </Card>
+        {/* Activity Feed */}
+        <Card className="rounded-2xl border-blue-100 bg-white/90 shadow-sm">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-lg text-slate-950">
+              <Activity className="h-4 w-4 text-blue-600" />
+              Recent Activity
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {loading ? (
+              <p className="text-sm text-muted-foreground">Loading...</p>
+            ) : activities.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No recent activity.</p>
+            ) : (
+              <div className="space-y-3 max-h-72 overflow-y-auto pr-1">
+                {activities.slice(0, 15).map((item) => {
+                  const Icon = ACTIVITY_ICONS[item.type] ?? Activity;
+                  const color = ACTIVITY_COLORS[item.type] ?? "text-slate-600 bg-slate-50";
+                  return (
+                    <div key={item.id} className="flex items-start gap-3">
+                      <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${color}`}>
+                        <Icon className="h-4 w-4" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm text-slate-800 truncate">{item.description}</p>
+                        <p className="text-xs text-muted-foreground">{relativeTime(item.timestamp)}</p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </section>
+
+      {/* Quick Actions */}
+      <section>
+        <h2 className="text-lg font-semibold text-slate-950 mb-3">Quick Actions</h2>
+        <div className="grid gap-3 sm:grid-cols-3">
+          {[
+            { href: "/dashboard/appointments", label: "View Today's Schedule", icon: CalendarDays },
+            { href: "/dashboard/check-in", label: "Check-In Queue", icon: Users },
+            { href: "/dashboard/forms", label: "Manage Forms", icon: FileText },
+          ].map((action) => (
+            <Link key={action.href} href={action.href}>
+              <Button
+                variant="outline"
+                className="w-full justify-between rounded-xl border-blue-100 bg-white px-4 py-6 text-slate-700 hover:bg-blue-50"
+              >
+                <span className="flex items-center gap-2">
+                  <action.icon className="h-4 w-4 text-blue-600" />
+                  {action.label}
+                </span>
+                <ArrowRight className="h-4 w-4" />
+              </Button>
+            </Link>
+          ))}
         </div>
       </section>
     </div>

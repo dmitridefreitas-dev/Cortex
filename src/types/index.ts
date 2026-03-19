@@ -125,6 +125,7 @@ export interface Conversation {
   patientId?: string;
   messages: ChatMessage[];
   summary?: string;
+  status?: string;
   createdAt: string;
   updatedAt: string;
 }

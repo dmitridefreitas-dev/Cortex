@@ -6,6 +6,7 @@ import {
   createConversation,
   addMessageToConversation,
   setConversationPatientId,
+  updateConversationStatus,
 } from "@/lib/db/conversations";
 
 export const maxDuration = 60;
@@ -104,6 +105,11 @@ export async function POST(req: NextRequest) {
       })),
     };
     await addMessageToConversation(sessionId, assistantMessage);
+
+    const handoff = toolCalls.find(
+      (tc) => tc.result && typeof tc.result === "object" && (tc.result as Record<string, unknown>).handoffRequested
+    );
+    await updateConversationStatus(sessionId, handoff ? "needs_handoff" : "active");
 
     const patientId = extractPatientId(toolCalls);
     if (patientId && patientId !== conversation.patientId) {

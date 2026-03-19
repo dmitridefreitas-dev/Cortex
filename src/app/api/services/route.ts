@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServices, createService, deleteService } from "@/lib/db/services";
+import { getServices, createService, updateService, deleteService } from "@/lib/db/services";
 
 const CLINIC_ID = process.env.CLINIC_ID ?? "clinic-1";
 
@@ -42,6 +42,29 @@ export async function POST(req: NextRequest) {
       { error: "Failed to create service" },
       { status: 500 }
     );
+  }
+}
+
+export async function PATCH(req: NextRequest) {
+  try {
+    const body = await req.json();
+    const { id, ...updates } = body;
+
+    if (!id) {
+      return NextResponse.json({ error: "Service ID is required" }, { status: 400 });
+    }
+
+    if (updates.durationMinutes != null) updates.durationMinutes = Number(updates.durationMinutes);
+    if (updates.price != null) updates.price = Number(updates.price);
+
+    const service = await updateService(id, updates);
+    if (!service) {
+      return NextResponse.json({ error: "Service not found" }, { status: 404 });
+    }
+
+    return NextResponse.json({ service });
+  } catch {
+    return NextResponse.json({ error: "Failed to update service" }, { status: 500 });
   }
 }
 

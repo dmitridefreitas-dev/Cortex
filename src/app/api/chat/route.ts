@@ -1,14 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { chat } from "@/lib/ai/gemini";
 import type { ChatMessage, Conversation } from "@/types";
-
-export const maxDuration = 60;
 import {
   getConversation,
   createConversation,
   addMessageToConversation,
   setConversationPatientId,
 } from "@/lib/db/conversations";
+
+export const maxDuration = 60;
 
 const CLINIC_ID = process.env.CLINIC_ID ?? "clinic-1";
 
@@ -32,7 +32,20 @@ function checkRateLimit(ip: string): boolean {
   return true;
 }
 
+function checkEnvVars(): string | null {
+  if (!process.env.GEMINI_API_KEY) return "GEMINI_API_KEY is not set in environment variables.";
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL) return "NEXT_PUBLIC_SUPABASE_URL is not set in environment variables.";
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) return "SUPABASE_SERVICE_ROLE_KEY is not set in environment variables.";
+  return null;
+}
+
 export async function POST(req: NextRequest) {
+  const missingEnv = checkEnvVars();
+  if (missingEnv) {
+    console.error("Missing env var:", missingEnv);
+    return NextResponse.json({ error: missingEnv }, { status: 503 });
+  }
+
   const ip =
     req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
 
@@ -102,10 +115,11 @@ export async function POST(req: NextRequest) {
       sessionId,
     });
   } catch (error) {
-    console.error("Chat API error:", error instanceof Error ? error.message : error);
+    const detail = error instanceof Error ? error.message : String(error);
+    console.error("Chat API error:", detail);
     console.error("Stack:", error instanceof Error ? error.stack : "");
     return NextResponse.json(
-      { error: "Failed to process chat message", detail: error instanceof Error ? error.message : String(error) },
+      { error: "Failed to process chat message", detail },
       { status: 500 }
     );
   }

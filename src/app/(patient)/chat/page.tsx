@@ -96,13 +96,13 @@ export default function ChatPage() {
         ]);
       }
     } catch (error) {
-      console.error(error);
+      const detail = error instanceof Error ? error.message : String(error);
+      console.error("Chat error:", detail);
       setMessages((prev) => [
         ...prev,
         {
           role: "assistant",
-          content:
-            "I'm sorry, I'm having trouble connecting right now. Please try again.",
+          content: `I'm sorry, I'm having trouble connecting right now. (${detail})`,
           timestamp: new Date().toISOString(),
         },
       ]);

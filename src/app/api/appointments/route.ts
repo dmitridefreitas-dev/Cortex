@@ -12,7 +12,7 @@ import { getProvider } from "@/lib/db/providers";
 import { addMinutes } from "date-fns";
 import { isSlotAvailable } from "@/lib/availability";
 
-const CLINIC_ID = "clinic-1";
+const CLINIC_ID = process.env.CLINIC_ID ?? "clinic-1";
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);

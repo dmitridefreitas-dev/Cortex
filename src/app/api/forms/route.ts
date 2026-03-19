@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getForms, createForm, updateForm, deleteForm } from "@/lib/db/forms";
 
-const CLINIC_ID = "clinic-1";
+const CLINIC_ID = process.env.CLINIC_ID ?? "clinic-1";
 
 export async function GET() {
   const forms = await getForms(CLINIC_ID);

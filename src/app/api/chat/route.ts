@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { chat } from "@/lib/ai/gemini";
 import type { ChatMessage, Conversation } from "@/types";
+
+export const maxDuration = 60;
 import {
   getConversation,
   createConversation,
@@ -8,9 +10,39 @@ import {
   setConversationPatientId,
 } from "@/lib/db/conversations";
 
-const CLINIC_ID = "clinic-1";
+const CLINIC_ID = process.env.CLINIC_ID ?? "clinic-1";
+
+// Simple in-memory rate limiter: 20 requests per minute per IP
+const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
+
+function checkRateLimit(ip: string): boolean {
+  const now = Date.now();
+  const entry = rateLimitMap.get(ip);
+
+  if (!entry || now > entry.resetAt) {
+    rateLimitMap.set(ip, { count: 1, resetAt: now + 60_000 });
+    return true;
+  }
+
+  if (entry.count >= 20) {
+    return false;
+  }
+
+  entry.count += 1;
+  return true;
+}
 
 export async function POST(req: NextRequest) {
+  const ip =
+    req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+
+  if (!checkRateLimit(ip)) {
+    return NextResponse.json(
+      { error: "Too many requests. Please wait a moment before trying again." },
+      { status: 429 }
+    );
+  }
+
   try {
     const body = await req.json();
     const { message, sessionId } = body as {

@@ -5,7 +5,7 @@ import {
   deleteProvider,
 } from "@/lib/db/providers";
 
-const CLINIC_ID = "clinic-1";
+const CLINIC_ID = process.env.CLINIC_ID ?? "clinic-1";
 
 export async function GET() {
   try {

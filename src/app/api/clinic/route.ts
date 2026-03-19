@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDefaultClinic, updateClinic } from "@/lib/db/clinics";
 
+const CLINIC_ID = process.env.CLINIC_ID ?? "clinic-1";
+
 export async function GET() {
   const clinic = await getDefaultClinic();
   return NextResponse.json({ clinic });
@@ -9,7 +11,7 @@ export async function GET() {
 export async function PATCH(req: NextRequest) {
   try {
     const body = await req.json();
-    const clinic = await updateClinic("clinic-1", body);
+    const clinic = await updateClinic(CLINIC_ID, body);
     if (!clinic) {
       return NextResponse.json({ error: "Clinic not found" }, { status: 404 });
     }

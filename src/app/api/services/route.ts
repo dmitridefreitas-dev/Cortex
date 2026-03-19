@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServices, createService, deleteService } from "@/lib/db/services";
 
-const CLINIC_ID = "clinic-1";
+const CLINIC_ID = process.env.CLINIC_ID ?? "clinic-1";
 
 export async function GET() {
   try {

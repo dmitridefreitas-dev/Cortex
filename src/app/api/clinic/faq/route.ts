@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getFAQEntries, createFAQEntry, updateFAQEntry, deleteFAQEntry } from "@/lib/db/faq";
 
-const CLINIC_ID = "clinic-1";
+const CLINIC_ID = process.env.CLINIC_ID ?? "clinic-1";
 
 export async function GET() {
   const entries = await getFAQEntries(CLINIC_ID);

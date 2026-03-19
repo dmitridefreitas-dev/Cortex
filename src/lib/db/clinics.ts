@@ -22,10 +22,7 @@ function rowToClinic(row: Record<string, unknown>): Clinic {
         settings.cancellationPolicy ??
         "Please cancel at least 24 hours before your appointment.",
       minBookingNoticeHours: Number(settings.minBookingNoticeHours ?? 2) || 2,
-      maxBookingDaysAhead: Math.max(
-        Number(settings.maxBookingDaysAhead ?? 365) || 365,
-        365
-      ),
+      maxBookingDaysAhead: Number(settings.maxBookingDaysAhead ?? 365) || 365,
       bufferMinutes: Number(settings.bufferMinutes ?? 10) || 10,
     },
   };
@@ -50,8 +47,11 @@ export async function getClinic(id: string): Promise<Clinic | undefined> {
 }
 
 export async function getDefaultClinic(): Promise<Clinic> {
-  const { data } = await supabase.from("clinics").select("*").limit(1).single();
-  return rowToClinic(data!);
+  const { data, error } = await supabase.from("clinics").select("*").limit(1).single();
+  if (error || !data) {
+    throw new Error("No clinic found. Please seed the database first.");
+  }
+  return rowToClinic(data);
 }
 
 export async function updateClinic(

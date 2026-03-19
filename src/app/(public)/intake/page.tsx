@@ -25,7 +25,8 @@ function PatientIntakePage() {
   const searchParams = useSearchParams();
   const formId = searchParams.get("formId");
   const appointmentId = searchParams.get("appointmentId");
-  
+  const patientId = searchParams.get("patientId") ?? undefined;
+
   const [form, setForm] = useState<IntakeForm | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -43,13 +44,11 @@ function PatientIntakePage() {
       return;
     }
 
-    // In a real app we'd fetch just this specific form securely
-    fetch(`/api/forms`)
+    fetch(`/api/forms/${formId}`)
       .then(res => res.json())
       .then(data => {
-        const found = data.forms?.find((f: IntakeForm) => f.id === formId);
-        if (found) {
-          setForm(found);
+        if (data.form) {
+          setForm(data.form);
         } else {
           setError("Form not found or is no longer active.");
         }
@@ -72,7 +71,6 @@ function PatientIntakePage() {
     e.preventDefault();
     if (!form || !formId) return;
 
-    // Basic validation
     for (const field of form.fields) {
       if (field.required && !responses[field.id]) {
         alert(`Please complete the required field: ${field.label}`);
@@ -81,16 +79,15 @@ function PatientIntakePage() {
     }
 
     setSubmitting(true);
-    
+
     try {
-      // Create response (in a real app, patientId would be established securely via session or token)
       await fetch('/api/forms/responses', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           formId,
           appointmentId: appointmentId || undefined,
-          patientId: "pending-auth-patient", // Simplified for demo
+          patientId: patientId ?? "anonymous",
           responses
         })
       });
@@ -103,7 +100,7 @@ function PatientIntakePage() {
   };
 
   if (loading) return <div className="min-h-screen p-8 mt-12 text-center">Loading your intake form...</div>;
-  
+
   if (error) return (
     <div className="min-h-screen p-8 mt-12 flex justify-center">
       <Card className="w-full max-w-md border-red-200">
@@ -136,9 +133,9 @@ function PatientIntakePage() {
       <div className="w-full max-w-2xl">
         <div className="mb-8 text-center">
           <h1 className="text-2xl font-bold text-primary mb-2">Cortex Medical Clinic</h1>
-          <p className="text-muted-foreground">Patient Intake & Registration</p>
+          <p className="text-muted-foreground">Patient Intake &amp; Registration</p>
         </div>
-        
+
         <Card className="shadow-md">
           <CardHeader className="bg-slate-50 border-b pb-6">
             <CardTitle className="text-xl">{form.name}</CardTitle>
@@ -149,7 +146,7 @@ function PatientIntakePage() {
               <span className="text-red-500">*</span> Indicates a required field
             </p>
           </CardHeader>
-          
+
           <CardContent className="pt-6">
             <form onSubmit={handleSubmit} className="space-y-6">
               {form.fields.map((field: IntakeFormField) => (
@@ -157,18 +154,18 @@ function PatientIntakePage() {
                   <Label htmlFor={field.id} className="text-sm font-medium">
                     {field.label} {field.required && <span className="text-red-500">*</span>}
                   </Label>
-                  
+
                   {field.type === 'text' && (
-                    <Input 
+                    <Input
                       id={field.id}
                       value={getTextResponse(field.id)}
                       onChange={(e) => handleChange(field.id, e.target.value)}
                       required={field.required}
                     />
                   )}
-                  
+
                   {field.type === 'textarea' && (
-                    <Textarea 
+                    <Textarea
                       id={field.id}
                       rows={3}
                       value={getTextResponse(field.id)}
@@ -176,9 +173,9 @@ function PatientIntakePage() {
                       required={field.required}
                     />
                   )}
-                  
+
                   {field.type === 'date' && (
-                    <Input 
+                    <Input
                       id={field.id}
                       type="date"
                       value={getTextResponse(field.id)}
@@ -186,11 +183,26 @@ function PatientIntakePage() {
                       required={field.required}
                     />
                   )}
-                  
+
+                  {field.type === 'select' && field.options && (
+                    <select
+                      id={field.id}
+                      value={getTextResponse(field.id)}
+                      onChange={(e) => handleChange(field.id, e.target.value)}
+                      required={field.required}
+                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                    >
+                      <option value="">Select an option...</option>
+                      {field.options.map((opt: string) => (
+                        <option key={opt} value={opt}>{opt}</option>
+                      ))}
+                    </select>
+                  )}
+
                   {field.type === 'checkbox' && (
                     <div className="flex items-center space-x-2 mt-2">
-                      <Checkbox 
-                        id={field.id} 
+                      <Checkbox
+                        id={field.id}
                         checked={!!responses[field.id]}
                         onCheckedChange={(checked) => handleChange(field.id, checked === true)}
                       />
@@ -201,7 +213,7 @@ function PatientIntakePage() {
                   )}
                 </div>
               ))}
-              
+
               <div className="pt-6 border-t mt-8">
                 <Button type="submit" className="w-full text-lg py-6" disabled={submitting}>
                   {submitting ? "Securely Submitting..." : "Submit Intake Form"}

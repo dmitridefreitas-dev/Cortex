@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getConversations, deleteConversation } from "@/lib/db/conversations";
 import { getPatients } from "@/lib/db/patients";
 
-const CLINIC_ID = "clinic-1";
+const CLINIC_ID = process.env.CLINIC_ID ?? "clinic-1";
 
 export async function GET() {
   const [conversations, patients] = await Promise.all([

@@ -23,7 +23,7 @@ import { isSlotAvailable } from "@/lib/availability";
 import { sendNotification } from "@/lib/notifications";
 import { addDays, addMinutes, format, isValid, parseISO } from "date-fns";
 
-const CLINIC_ID = "clinic-1";
+const CLINIC_ID = process.env.CLINIC_ID ?? "clinic-1";
 
 function normalizeDate(input: string): string | null {
   // Already YYYY-MM-DD (with optional zero-padding)

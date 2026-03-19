@@ -5,7 +5,7 @@ import { getServices } from "@/lib/db/services";
 import { getProviders } from "@/lib/db/providers";
 import { isToday } from "date-fns";
 
-const CLINIC_ID = "clinic-1";
+const CLINIC_ID = process.env.CLINIC_ID ?? "clinic-1";
 
 export async function GET(req: NextRequest) {
   try {

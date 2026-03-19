@@ -26,7 +26,7 @@ export async function chat(
     : undefined;
   const systemPrompt = buildSystemPrompt(clinic, patientContext);
 
-  const model = process.env.GEMINI_MODEL || "gemini-2.0-flash-lite";
+  const model = process.env.GEMINI_MODEL || "gemini-2.5-flash";
 
   // Build Gemini message history
   const geminiContents = messages.map((m) => ({
